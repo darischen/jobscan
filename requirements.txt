@@ -1,0 +1,3 @@
+httpx>=0.27
+# tier B only, install when you get there:
+# playwright>=1.44

@@ -1,0 +1,5 @@
+company,ticker,ats,token,tenant,site,wd,host,careers_url,query,notes
+Anthropic,,greenhouse,anthropic,,,,,https://www.anthropic.com/careers,,
+OpenAI,,ashby,openai,,,,,https://openai.com/careers/search/,,
+Databricks,,greenhouse,databricks,,,,,https://www.databricks.com/company/careers,,
+NVIDIA,NVDA,workday,,nvidia,NVIDIAExternalCareerSite,wd5,,https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite,,

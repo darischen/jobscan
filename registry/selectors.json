@@ -1,0 +1,4 @@
+{
+  "_comment": "Tier B only. One entry per company, keyed by the registry company name. Write these once with a Claude Code instance, then commit. 'card' is the selector matching each job link on the careers page.",
+  "AMD": { "card": "a.job-title-link" }
+}

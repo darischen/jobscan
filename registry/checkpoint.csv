@@ -1,0 +1,116 @@
+company,ticker,ats,token,tenant,site,wd,host,careers_url,query,notes
+Accenture,ACN,workday,,accenture,AccentureCareers,wd103,,https://www.accenture.com/us-en/careers/jobsearch,,"board is at the Workday 2000 total cap, add query rows to slice it"
+Adobe,ADBE,workday,,adobe,external_experienced,wd5,,https://adobe.wd5.myworkdayjobs.com/external_experienced,,
+Airbnb,ABNB,greenhouse,airbnb,,,,,https://careers.airbnb.com/,,auto-discovered from name
+Anthropic,,greenhouse,anthropic,,,,,https://www.anthropic.com/careers,,private
+Cloudflare,NET,greenhouse,cloudflare,,,,,https://www.cloudflare.com/careers/jobs/,,
+Databricks,,greenhouse,databricks,,,,,https://www.databricks.com/company/careers/open-positions,,private
+Datadog,DDOG,greenhouse,datadog,,,,,https://careers.datadoghq.com/,,auto-discovered from name
+Dell,DELL,oracle,,,CX_2,,iawmqy.fa.ocs.oraclecloud.com,https://jobs.dell.com/,,
+DoorDash,DASH,greenhouse,doordashusa,,,,,https://careers.doordash.com/,,token is doordashusa not doordash
+Figma,FIG,greenhouse,figma,,,,,https://www.figma.com/careers/,,
+GitLab,GTLB,greenhouse,gitlab,,,,,https://about.gitlab.com/jobs/,,
+Instacart,CART,greenhouse,instacart,,,,,https://instacart.careers/,,auto-discovered from name
+Linear,,ashby,linear,,,,,https://linear.app/careers,,private
+Micron,MU,workday,,micron,External,wd1,,https://micron.wd1.myworkdayjobs.com/External,,
+NVIDIA,NVDA,workday,,nvidia,NVIDIAExternalCareerSite,wd5,,https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite,,
+OpenAI,,ashby,openai,,,,,https://openai.com/careers/search/,,private
+Palantir,PLTR,lever,palantir,,,,,https://www.palantir.com/careers/,,
+Ramp,,ashby,ramp,,,,,https://ramp.com/careers,,private
+Reddit,RDDT,greenhouse,reddit,,,,,https://redditinc.com/careers,,
+AbbVie,,smartrecruiters,abbvie,,,,,https://careers.smartrecruiters.com/abbvie,,confirmed 1653 jobs
+Upwork,,greenhouse,upwork,,,,,https://job-boards.greenhouse.io/upwork,,probed  confirmed 10 jobs
+Roblox,RBLX,greenhouse,roblox,,,,,https://careers.roblox.com/,,auto-discovered from name
+Salesforce,CRM,workday,,salesforce,External_Career_Site,wd12,,https://salesforce.wd12.myworkdayjobs.com/External_Career_Site,,
+Snowflake,SNOW,ashby,snowflake,,,,,https://careers.snowflake.com/us/en,,confirmed 403 jobs via auto-probe
+Stripe,,greenhouse,stripe,,,,,https://stripe.com/jobs/search,,private
+Twilio,TWLO,greenhouse,twilio,,,,,https://www.twilio.com/en-us/company/jobs,,
+Workday,WDAY,workday,,workday,Workday,wd5,,https://workday.wd5.myworkdayjobs.com/Workday,,
+AMD,AMD,icims,,,,,careers.amd.com,https://careers.amd.com/careers-home,,tier B
+Apple,AAPL,custom,,,,,jobs.apple.com,https://jobs.apple.com/en-us/search,,tier B - json search endpoint exists
+Broadcom,AVGO,custom,,,,,www.broadcom.com,https://www.broadcom.com/company/careers,,tier B - unidentified
+Cisco,CSCO,custom,,,,,jobs.cisco.com,https://jobs.cisco.com/jobs/SearchJobs,,tier B
+IBM,IBM,custom,,,,,careers.ibm.com,https://www.ibm.com/careers/search,,tier B
+Intel,INTC,eightfold,,,,,jobs.intel.com,https://jobs.intel.com/,,tier B
+Microsoft,MSFT,successfactors,,,,,apply.careers.microsoft.com,https://apply.careers.microsoft.com/careers,,
+Netflix,NFLX,eightfold,,,,,explore.jobs.netflix.net,https://explore.jobs.netflix.net/careers,,tier B - moved off Lever
+Qualcomm,QCOM,eightfold,,,,,careers.qualcomm.com,https://careers.qualcomm.com/careers,,tier B
+GitHub,,icims,,,,,www.github.careers,https://www.github.careers/careers-home/jobs,,tier B
+Google,GOOGL,google,,,,,,https://www.google.com/about/careers/applications/jobs/results,software engineer,self-hosted; records embedded in AF_initDataCallback
+Google,GOOGL,google,,,,,,https://www.google.com/about/careers/applications/jobs/results,machine learning,self-hosted; records embedded in AF_initDataCallback
+Google,GOOGL,google,,,,,,https://www.google.com/about/careers/applications/jobs/results,data engineer,self-hosted; records embedded in AF_initDataCallback
+Google,GOOGL,google,,,,,,https://www.google.com/about/careers/applications/jobs/results,early career,self-hosted; records embedded in AF_initDataCallback
+Spotify,SPOT,lever,spotify,,,,,https://jobs.lever.co/spotify/,,
+NBA,,workday,,nba,nbacareers,wd108,,https://careers.nba.com/c/technology-jobs,,confirmed 45 jobs
+Coinbase,COIN,greenhouse,coinbase,,,,,https://job-boards.greenhouse.io/coinbase,,,
+IXL,,greenhouse,ixllearning,,,,,https://www.ixl.com/company/careers,,confirmed 118 jobs
+Pinterest,PINTEREST,greenhouse,pinterest,,,,,https://www.pinterestcareers.com,,,
+Lowe's,LOW,workday,,lowes,LWS_External_CS,wd5,,https://lowes.wd5.myworkdayjobs.com/,,,
+Wells Fargo,WFC,custom,,,,,wd1.myworkdaysite.com,https://wd1.myworkdaysite.com/recruiting/wf/WellsFargoJobs/,,needs workday config
+3M,MMM,workday,,3m,Search,wd1,,https://3m.wd1.myworkdayjobs.com/en-US/Search,,
+American Express,AXP,custom,,,,,careers.americanexpress.com,https://careers.americanexpress.com/en/sites/CX_1/jobs,,
+TSMC,TSM,successfactors,,,,,ro.careers.tsmc.com,https://ro.careers.tsmc.com/search/,,
+Zscaler,ZS,greenhouse,zscaler,,,,,https://job-boards.greenhouse.io/zscaler,,
+Amcor,AMC,workday,,amcor,Amcor_External_Career_Site,wd5,,https://amcor.wd5.myworkdayjobs.com/Amcor_External_Career_Site/,,confirmed 784 jobs
+Agilent Technologies,,workday,,agilent,Agilent_Student_Careers,wd5,,https://agilent.wd5.myworkdayjobs.com/en-US/Agilent_Student_Careers?locationCountry=bc33aa3152ec42d4995f4791a106ed09,,confirmed 33 jobs
+AES Corporation,,workday,,aes,AES_US,wd1,,https://aes.wd1.myworkdayjobs.com/AES_US,,confirmed 108 jobs
+Ameren,,workday,,ameren,External,wd1,,https://ameren.wd1.myworkdayjobs.com/External?_gl=1*1e7z7pv*_gcl_au*MTg2MDc4NDY1NC4xNzM5MjE5ODk2LjMzMzYwMTE5MS4xNzQ0ODM2OTAxLjE3NDQ4MzY5MDE.*_ga*ODU0ODk2NDA1LjE3MzkyMTk4OTY.*_ga_8C6F435CY5*MTc0NjAzNTMyMy4xLjEuMTc0NjA0NTY3OS41OC4wLjA.,,confirmed 69 jobs
+Altria,MO,successfactors,,,,,careers.altria.com,https://careers.altria.com/,,
+Meta,META,custom,,,,,www.metacareers.com,https://www.metacareers.com/jobsearch/,,
+Tesla,TSLA,custom,,,,,www.tesla.com,https://www.tesla.com/careers/search/?site=US,,
+Oracle,ORCL,custom,,,,,careers.oracle.com,https://careers.oracle.com/,,
+Uber,UBER,oracle,,,UberCareers,,iaziqy.fa.ocs.oraclecloud.com,https://jobs.uber.com/en/jobs/,,confirmed 609 jobs
+Tinder,,lever,matchgroup,,,,,https://jobs.lever.co/matchgroup/,,confirmed 83 jobs
+Coupang,,greenhouse,coupang,,,,,,,probed  confirmed 642 jobs
+TikTok,,custom,,,,,lifeattiktok.com,https://lifeattiktok.com/search/,,
+Snapchat,,workday,,snapchat,snap,wd1,,https://wd1.myworkdaysite.com/recruiting/snapchat/snap,,
+XAI,,greenhouse,xai,,,,,https://job-boards.greenhouse.io/xai/,,includes X/Twitter hiring post-merger
+Shopify,SHOP,custom,,,,,www.shopify.com,https://www.shopify.com/careers/,,
+Dropbox,DBX,custom,,,,,www.dropbox.jobs,https://www.dropbox.jobs/en/jobs/,,
+Samsung,,workday,,sec,Samsung_Careers,wd3,,https://sec.wd3.myworkdayjobs.com/Samsung_Careers,,confirmed 572 jobs
+Panasonic,PCRFY,icims,,,,,uscareers-napanasonic.icims.com,https://uscareers-napanasonic.icims.com/,,
+LG Electronics,,greenhouse,lgelectronics,,,,,,,confirmed 98 jobs
+Sony,SNE,workday,,sonyglobal,SonyGlobalCareers,wd1,,https://www.sonyjobs.com/jobs.html,,confirmed 103 jobs
+SK Hynix,,greenhouse,skhynixamerica,,,,,https://job-boards.greenhouse.io/skhynixamerica,,
+Ford,F,custom,,,,,apply.ford.com,https://apply.ford.com/en/sites/CX_1/jobs,,tier B - SSL cert blocks verify
+General Motors,GM,workday,,generalmotors,Careers_GM,wd5,,https://generalmotors.wd5.myworkdayjobs.com/Careers_GM/,,
+Lyft,LYFT,greenhouse,lyft,,,,,https://app.careerpuck.com/job-board/lyft/,,
+Hyundai,HMC,successfactors,,,,,careers-americas.hyundai.com,https://careers-americas.hyundai.com/,,
+DigitalOcean,,custom,,,,,www.digitalocean.com,https://www.digitalocean.com/careers/,,tier B - Greenhouse-styled UI, token unknown
+Elastic,,greenhouse,elastic,,,,,https://jobs.elastic.co/,,
+Vercel,,custom,,,,,vercel.com,https://vercel.com/careers/,,
+Robinhood,,greenhouse,robinhood,,,,,https://job-boards.greenhouse.io/robinhood/,,confirmed 124 jobs
+PayPal,PYPL,eightfold,,,,,paypal.eightfold.ai,https://paypal.eightfold.ai/careers,,tier B
+Charles Schwab,SCHW,icims,,,,,career-ind-schwab.icims.com,https://career-ind-schwab.icims.com,,tier B
+Fidelity,FIS,custom,,,,,jobs.fidelity.com,https://jobs.fidelity.com,,tier B
+JPMorgan Chase,JPM,oracle,,,CX_1001,,jpmc.fa.oraclecloud.com,https://jpmc.fa.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1001/jobs,,confirmed 5100 jobs
+Morgan Stanley,MS,custom,,,,,www.morganstanley.com,https://www.morganstanley.com/careers,,tier B
+Goldman Sachs,GS,oracle,,,LateralHiring,,hdpc.fa.us2.oraclecloud.com,https://hdpc.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/LateralHiring/jobs,,confirmed 1317 jobs
+Intuit,INTU,avature,,,,,jobs.intuit.com,https://jobs.intuit.com/search-jobs,,tier B
+SAP,SAP,successfactors,,,,,career5.successfactors.eu,https://career5.successfactors.eu/careers?company=SAP,,tier B
+ServiceNow,NOW,smartrecruiters,servicenow,,,,,https://careers.servicenow.com/jobs,,probed  confirmed 444 jobs
+Atlassian,TEAM,icims,,,,,careers-apac-atlassian.icims.com,https://careers-apac-atlassian.icims.com,,tier B
+Notion,,ashby,notion,,,,,https://jobs.ashbyhq.com/notion,,confirmed 116 jobs
+Airtable,AIRTABLE,greenhouse,airtable,,,,,https://job-boards.greenhouse.io/airtable,,probed  confirmed 39 jobs
+Box,BOX,greenhouse,boxinc,,,,,https://careers.box.com/en/jobs,,probed  confirmed 117 jobs
+Okta,OKTA,custom,,,,,www.okta.com,https://www.okta.com/company/careers/job-listing/,,tier B
+Moderna,MRNA,workday,,modernatx,M_tx,wd1,,https://modernatx.wd1.myworkdayjobs.com/M_tx,,confirmed 189 jobs
+Genentech,DNA,workday,,roche,ROG-A2O-GENE,wd3,,https://careers.gene.com/us/en/search-results,,confirmed 232 jobs
+Illumina,ILMN,workday,,illumina,illumina-careers,wd1,,https://illumina.wd1.myworkdayjobs.com/illumina-careers,,confirmed 126 jobs
+10x Genomics,,eightfold,,,,,careers.10xgenomics.com,https://careers.10xgenomics.com,,tier B
+UnitedHealth Group,UNH,taleo,,,,,careers.unitedhealthgroup.com,https://careers.unitedhealthgroup.com/search-jobs,,tier B
+Disney,DIS,workday,,disney,disneycareer,wd5,,https://disney.wd5.myworkdayjobs.com/en-US/disneycareer/,,confirmed 664 jobs
+Paramount Global,PARA,successfactors,,,,,careers.paramount.com,https://careers.paramount.com/go/All-Current-Job-Opportunities/8710000/,,tier B
+Warner Bros Discovery,WBD,workday,,warnerbros,global,wd5,,https://warnerbros.wd5.myworkdayjobs.com/en-US/global/,,confirmed 445 jobs
+DeepMind,,google,,,,,,https://www.google.com/about/careers/applications/jobs/results?company=DeepMind,,filtered Google careers for DeepMind
+Waymo,,google,,,,,,https://www.google.com/about/careers/applications/jobs/results?company=Waymo,,filtered Google careers for Waymo
+YouTube,,google,,,,,,https://www.google.com/about/careers/applications/jobs/results?company=YouTube,,filtered Google careers for YouTube
+Wing,,google,,,,,,https://www.google.com/about/careers/applications/jobs/results?company=Wing,,filtered Google careers for Wing
+Cohere,,ashby,cohere,,,,,https://jobs.ashbyhq.com/cohere,,confirmed 138 jobs
+Stability AI,,greenhouse,stabilityai,,,,,https://stability.ai/careers,,probed  confirmed 5 jobs
+Electronic Arts,EA,custom,,,,,www.ea.com,https://www.ea.com/careers,,tier B
+Activision Blizzard,ATVI,workday,,xboxgaming,External,wd1,,https://careers.activisionblizzard.com/search-results,,confirmed 55 jobs
+Take-Two Interactive,TTWO,greenhouse,taketwo,,,,,https://job-boards.greenhouse.io/taketwo,,probed  confirmed 33 jobs
+Ubisoft,,smartrecruiters,ubisoft2,,,,,https://careers.smartrecruiters.com/ubisoft2,,confirmed 274 jobs
+Epic Games,,custom,,,,,www.epicgames.com,https://www.epicgames.com/site/careers/jobs,,tier B
+Discord,,greenhouse,discord,,,,,https://job-boards.greenhouse.io/discord,,
