@@ -47,10 +47,7 @@ General Motors,GM,workday,,generalmotors,Careers_GM,wd5,,https://generalmotors.w
 GitHub,,icims,,,,,www.github.careers,https://www.github.careers/careers-home/jobs,,tier B
 GitLab,GTLB,greenhouse,gitlab,,,,,https://about.gitlab.com/jobs/,,
 Goldman Sachs,GS,oracle,,,LateralHiring,,hdpc.fa.us2.oraclecloud.com,https://hdpc.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/LateralHiring/jobs,,confirmed 1317 jobs
-Google,GOOGL,google,,,,,,https://www.google.com/about/careers/applications/jobs/results,data engineer,self-hosted; records embedded in AF_initDataCallback
-Google,GOOGL,google,,,,,,https://www.google.com/about/careers/applications/jobs/results,early career,self-hosted; records embedded in AF_initDataCallback
-Google,GOOGL,google,,,,,,https://www.google.com/about/careers/applications/jobs/results,machine learning,self-hosted; records embedded in AF_initDataCallback
-Google,GOOGL,google,,,,,,https://www.google.com/about/careers/applications/jobs/results,software engineer,self-hosted; records embedded in AF_initDataCallback
+Google,GOOGL,google,,,,,,https://www.google.com/about/careers/applications/jobs/results,,full board via total-driven pagination; 4 query slices collapsed once the 1180 page cap was removed
 Hyundai,HMC,successfactors,,,,,careers-americas.hyundai.com,https://careers-americas.hyundai.com/,,
 IBM,IBM,custom,,,,,careers.ibm.com,https://www.ibm.com/careers/search,,tier B
 Illumina,ILMN,workday,,illumina,illumina-careers,wd1,,https://illumina.wd1.myworkdayjobs.com/illumina-careers,,confirmed 126 jobs

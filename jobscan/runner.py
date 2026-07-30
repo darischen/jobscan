@@ -48,20 +48,43 @@ _US_RE = re.compile(
 )
 
 
-def is_us_location(loc: str | None) -> bool:
-    """True when a posting is US based.
+# Words a board attaches to a remote listing that name no place. Whatever
+# survives removing these is a real geographic name, which is what separates
+# "Fully Remote" from "Remote - India".
+_REMOTE_FILLER = re.compile(r"""\b(
+    REMOTE | WFH | WORK | FROM | HOME | ANYWHERE | DISTRIBUTED | VIRTUAL
+  | TELECOMMUTE | TELEWORK | FULLY | FULL | PARTLY | PARTIAL | HYBRID
+  | FLEXIBLE | OPTIONAL | ELIGIBLE | FRIENDLY | BASED | LOCATION | LOCATIONS
+  | MULTIPLE | VARIOUS | OTHER | ANY | OR | AND | TIME | PART | ONSITE
+  | ON | SITE | OFFICE | FIELD | TRAVEL | NATIONWIDE
+)\b""", re.X)
 
-    A blank location passes. Boards that hide the field would otherwise
-    lose every row, and a missing location is not evidence of a foreign one.
+
+def is_us_location(loc: str | None) -> bool:
+    """True when a posting is open to someone who will relocate within the US.
+
+    A blank location passes. Boards that hide the field would otherwise lose
+    every row, and a missing location is not evidence of a foreign one.
+
+    Any US token anywhere passes, including multi-location postings. A req
+    listing "Dublin, Ireland; Austin, TX" is reachable from the US, so
+    discarding it would drop a real opportunity.
+
+    Remote is the case that needs care, because the word alone says nothing
+    about country. Bare "Remote" on a US board is a US listing. "Remote -
+    India" is not. The test is whether a geographic name survives stripping
+    the remote vocabulary: nothing left means unscoped remote (keep),
+    something left is a foreign place that already failed the US check (drop).
     """
     if not loc:
         return True
     upper = loc.upper()
     if _US_RE.search(upper):
         return True
-    # Bare "Remote" is a US listing on a US board. "France, Remote;
-    # Germany, Remote" is not, and the separator is what tells them apart.
-    return "REMOTE" in upper and "," not in upper and ";" not in upper
+    if "REMOTE" in upper:
+        rest = _REMOTE_FILLER.sub(" ", upper)
+        return not re.search(r"[A-Z]", rest)
+    return False
 
 
 async def _one(client: httpx.AsyncClient, sem: asyncio.Semaphore, row: dict[str, Any], retries: int, errors: list[tuple[str, str, str]]) -> list[Job]:

@@ -106,7 +106,12 @@ async def amazon(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> lis
 _GOOG_BLOB = re.compile(r"AF_initDataCallback\((\{.*?\})\);", re.S)
 _GOOG_DATA = re.compile(r"data:\s*(\[.*?\])\s*,\s*sideChannel", re.S)
 _GOOG_SLUG = re.compile(r"[^a-z0-9]+")
+_GOOG_TOTAL = re.compile(r"([\d,]+)\s+jobs?\s+matched", re.I)
 GOOGLE_PAGE_SIZE = 20
+# Safety net only. The board reports its own total and the loop stops on an
+# empty page, so this bound exists so a markup change cannot spin forever.
+# 400 pages is 8,000 records, well past the ~3,600 the board carries.
+GOOGLE_MAX_PAGES = 400
 
 
 def _goog_records(html: str) -> list:
@@ -141,15 +146,31 @@ async def google(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> lis
     # entire Google board with every posting relabelled as the subsidiary, so
     # `token` carries the org name the board expects.
     org = row.get("token", "")
+    # Optional server-side location filter. The board accepts "United States"
+    # and normalizes "US" to the same 2,034-row set. Left blank the adapter
+    # pulls every country and runner.is_us_location decides, which keeps that
+    # judgement in one place rather than trusting Google's geo classification.
+    where = row.get("site", "")
     out: list[Job] = []
     seen: set[str] = set()
-    for page in range(1, 60):  # hard ceiling, the board is finite
+    total: int | None = None
+    # The board paginates to the end: at 20 records a page, page 181 returns
+    # the final 17 of 3,617 and page 200 returns nothing. An earlier
+    # range(1, 60) capped this at 1,180 and silently dropped ~2,400 postings,
+    # which the four query-sliced registry rows existed to work around. Trust
+    # the board's own total instead of a guessed page count.
+    for page in range(1, GOOGLE_MAX_PAGES):
         r = await c.get(base,
                         params={"page": page,
                                 **({"q": query} if query else {}),
-                                **({"company": org} if org else {})},
+                                **({"company": org} if org else {}),
+                                **({"location": where} if where else {})},
                         headers={**HEADERS, "Accept": "text/html"})
         r.raise_for_status()
+        if total is None:
+            m = _GOOG_TOTAL.search(r.text)
+            if m:
+                total = int(m.group(1).replace(",", ""))
         fresh = 0
         for j in _goog_records(r.text):
             jid = j[0]
@@ -182,7 +203,11 @@ async def google(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> lis
                 raw_id=jid,
                 department=j[7] if len(j) > 7 and isinstance(j[7], str) else "",
             ))
-        if fresh < GOOGLE_PAGE_SIZE:
+        # A short or empty page is the end of the board. The total is a second
+        # stop condition for the case where the last page happens to be full.
+        if fresh == 0 or fresh < GOOGLE_PAGE_SIZE:
+            break
+        if total is not None and len(seen) >= total:
             break
     return out
 
