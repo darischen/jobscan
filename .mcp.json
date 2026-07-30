@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "jobscan": {
+      "command": "python",
+      "args": ["-m", "jobscan.mcp_server"],
+      "cwd": "."
+    }
+  }
+}

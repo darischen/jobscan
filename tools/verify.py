@@ -44,6 +44,7 @@ DRIFT = 0.40  # a 40% swing in job count against baseline is worth a look
 
 class CheckResult(TypedDict):
     company: str
+    key: str
     ticker: str
     ats: str
     status: str
@@ -56,6 +57,30 @@ class CheckResult(TypedDict):
 
 def load_health() -> dict[str, Any]:
     return json.loads(HEALTH.read_text(encoding="utf-8")) if HEALTH.exists() else {}
+
+
+def baseline_keys(rows: list[dict[str, Any]]) -> dict[int, str]:
+    """Map each row's id() to its health.json key.
+
+    Keying on company name alone breaks any company holding several rows.
+    Google's four query slices return 145 to 1180 jobs each and all wrote to
+    the key "Google", so every run compared one slice against whichever slice
+    saved last and reported drift that was not there.
+
+    Only companies with more than one row get a discriminator, so the 70-odd
+    single-row baselines already on disk keep working.
+    """
+    counts = Counter(r["company"] for r in rows)
+    out: dict[int, str] = {}
+    for r in rows:
+        key = r["company"]
+        if counts[key] > 1:
+            disc = (r.get("query") or r.get("token") or r.get("site")
+                    or r.get("tenant") or r.get("host") or "")
+            if disc:
+                key = f"{key} [{disc}]"
+        out[id(r)] = key
+    return out
 
 
 async def sample_live(client: httpx.AsyncClient, jobs: list[Any], n: int) -> tuple[int, int]:
@@ -75,9 +100,10 @@ async def sample_live(client: httpx.AsyncClient, jobs: list[Any], n: int) -> tup
     return ok, len(picks)
 
 
-async def check(client: httpx.AsyncClient, sem: asyncio.Semaphore, row: dict[str, Any], sample: int, baseline: dict[str, Any]) -> CheckResult:
+async def check(client: httpx.AsyncClient, sem: asyncio.Semaphore, row: dict[str, Any], sample: int, baseline: dict[str, Any], key: str | None = None) -> CheckResult:
     name, ats = row["company"], row["ats"]
-    res: CheckResult = {"company": name, "ticker": row.get("ticker", ""), "ats": ats,
+    res: CheckResult = {"company": name, "key": key or name,
+           "ticker": row.get("ticker", ""), "ats": ats,
            "status": "ok", "warnings": [], "count": 0, "dated_pct": 0,
            "live": "", "matches": 0}
     async with sem:
@@ -119,7 +145,7 @@ async def check(client: httpx.AsyncClient, sem: asyncio.Semaphore, row: dict[str
             if tried and ok < tried:
                 res["warnings"].append(f"{tried - ok}/{tried} sampled URLs dead")
 
-        prev = baseline.get(name, {}).get("count")
+        prev = baseline.get(res["key"], {}).get("count")
         if prev:
             swing = abs(len(jobs) - prev) / prev
             if swing > DRIFT:
@@ -151,6 +177,7 @@ async def main():
         return 1
 
     baseline: dict[str, Any] = load_health()
+    keys = baseline_keys(tier_a)
     sem = asyncio.Semaphore(a.concurrency)
     mark = {"ok": "  ", "WARN": "??", "FAIL": "XX"}
     print(f"{'':2} {'company':<22} {'ats':<15} {'jobs':>6} {'hits':>5} "
@@ -158,11 +185,11 @@ async def main():
 
     results: list[CheckResult] = []
     async with httpx.AsyncClient(timeout=45, follow_redirects=True) as c:
-        tasks = [check(c, sem, r, a.sample, baseline) for r in tier_a]
+        tasks = [check(c, sem, r, a.sample, baseline, keys[id(r)]) for r in tier_a]
         for coro in asyncio.as_completed(tasks):
             r = await coro
             results.append(r)
-            print(f"{mark[r['status']]} {r['company']:<22} {r['ats']:<15} "
+            print(f"{mark[r['status']]} {r['key']:<22} {r['ats']:<15} "
                   f"{r['count']:>6} {r['matches']:>5} "
                   f"{(str(r['dated_pct']) + '%') if r['count'] else '-':>6} "
                   f"{r['live'] or '-':>6}")
@@ -175,7 +202,8 @@ async def main():
           f"{len(fails)} fail, {len(tier_b)} tier B skipped")
 
     if a.baseline:
-        snap: dict[str, Any] = {r["company"]: {"count": r["count"], "ats": r["ats"],
+        snap: dict[str, Any] = {r["key"]: {"count": r["count"], "ats": r["ats"],
+                               "company": r["company"],
                                "checked": datetime.now(timezone.utc)
                                .isoformat(timespec="seconds")}
                 for r in results if r["status"] != "FAIL"}

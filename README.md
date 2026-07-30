@@ -288,14 +288,78 @@ and the batch continues. One retry with backoff, then it gives up.
 
 ---
 
+## MCP server
+
+Exposes scanning, querying and registry maintenance to Claude Code and any
+other MCP client, over stdio.
+
+```bash
+python -m jobscan.mcp_server
+```
+
+`.mcp.json` in the repo root registers it, so Claude Code starts it per
+session with no further setup. Paths come from the environment:
+
+| Variable | Default |
+|---|---|
+| `JOBSCAN_REGISTRY` | `registry/companies.csv` |
+| `JOBSCAN_DB` | `data/jobs.db` |
+| `JOBSCAN_RESULTS` | `results` |
+
+Nine tools:
+
+| Tool | Network | What it does |
+|---|---|---|
+| `scan` | yes | Fetch boards, classify, store, write a results CSV |
+| `scan_status` | no | Progress and result of a background scan |
+| `query_jobs` | no | Search stored open postings |
+| `list_companies` | no | The registry, with tier and `implemented` |
+| `registry_health` | no | Baseline coverage and freshness |
+| `verify_boards` | yes | The seven health checks per board |
+| `discover_company` | yes | Careers URL to a registry row |
+| `get_run_history` | no | The `runs` table |
+| `get_scan_results` | no | A past results folder and its sidecar |
+
+The server adds no scraping, classification or date logic. It calls the same
+`registry.load`, `runner.scan`, `core.classify` and `Store` that `cli.py`
+does, so behaviour cannot drift between the CLI and the tools.
+
+Scans of fewer than 10 boards block and return rows. Larger selections return
+a `scan_id` immediately, because the full registry takes minutes and one slow
+board would otherwise push the call past its timeout and lose the whole run.
+
+`scan`'s `limit` caps the returned array only. It never limits what is
+scanned, stored, or written to the CSV, and `shown` always reports the true
+total.
+
+Two guarantees worth knowing. Every tool reports failure as
+`{"ok": false, "error": ...}` rather than raising, because an exception
+crossing the MCP boundary reaches the client as an opaque protocol error.
+And provenance records the tool call, so a results file traces back to
+`mcp:scan(company='nvidia')` rather than to the server process.
+
+```bash
+pytest                 # 55 offline tests
+pytest -m network      # the handful that hit a live board
+```
+
+---
+
 ## Tier B
 
-Boards without public JSON: iCIMS, SAP SuccessFactors, Taleo, Phenom,
-Eightfold, and one-off custom sites.
+29 registry rows have no adapter and are skipped by every scan.
+`docs/tier-b-triage.md` classifies them by cost: **B1** needs one adapter per
+ATS family and covers several rows each, **B2** is bespoke per company, and
+**C** genuinely needs a browser. `list_companies` marks all of them
+`implemented: false` so the gap stays visible rather than silent.
+
+Read that document before starting. Most of the original 39 turned out not to
+need a browser at all: eleven were reachable with an existing adapter and
+wrong CSV cells, and two environment bugs were making healthy boards look dead.
 
 ```bash
 pip install playwright && playwright install chromium
-python -m jobscan.tier_b --company amd
+python -m jobscan.tier_b --company amd     # not implemented yet
 ```
 
 Each tenant needs a selector config in `registry/selectors.json`:

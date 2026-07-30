@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections import Counter
 from typing import Any
 
 import httpx
@@ -20,6 +21,12 @@ HEADERS = {
                   "(KHTML, like Gecko) Chrome/124.0 Safari/537.36",
     "Accept": "application/json, text/plain, */*",
     "Accept-Language": "en-US,en;q=0.9",
+    # Named explicitly rather than left to httpx's default, which advertises
+    # zstd and brotli. On httpx 0.28 / CPython 3.14 a zstd response dies with
+    # "cannot use a decompressobj multiple times", and amazon.jobs serves
+    # exactly that. Naming the two encodings every board supports sidesteps
+    # the decoder bug without giving up compression.
+    "Accept-Encoding": "gzip, deflate",
     "Cache-Control": "no-cache",
     "Pragma": "no-cache",
 }
@@ -55,15 +62,16 @@ async def amazon(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> lis
     query = row.get("query", "")
     out, offset, hits = [], 0, None
     while True:
-        try:
-            r = await c.get(url, headers=HEADERS, params={
-                "base_query": query, "offset": offset,
-                "result_limit": AMAZON_PAGE, "sort": "recent",
-            })
-            r.raise_for_status()
-            d = r.json()
-        except Exception:
-            break
+        # No try/except here. Every other adapter lets failures reach
+        # runner._one, which retries once and then records the error. Catching
+        # and breaking turned a hard failure into a successful scan of zero
+        # jobs, so a decoder bug read as "Amazon has no openings" for weeks.
+        r = await c.get(url, headers=HEADERS, params={
+            "base_query": query, "offset": offset,
+            "result_limit": AMAZON_PAGE, "sort": "recent",
+        })
+        r.raise_for_status()
+        d = r.json()
         if d.get("error"):
             raise ValueError(str(d["error"])[:120])
         if hits is None:
@@ -90,7 +98,6 @@ async def amazon(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> lis
         offset += AMAZON_PAGE
         if not jobs or offset >= min(hits, AMAZON_CEILING):
             return out
-    return out
 
 # -------------------------------------------------------------------- google
 # Google self-hosts. There is no REST endpoint. The results page is server
@@ -100,7 +107,12 @@ async def amazon(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> lis
 _GOOG_BLOB = re.compile(r"AF_initDataCallback\((\{.*?\})\);", re.S)
 _GOOG_DATA = re.compile(r"data:\s*(\[.*?\])\s*,\s*sideChannel", re.S)
 _GOOG_SLUG = re.compile(r"[^a-z0-9]+")
+_GOOG_TOTAL = re.compile(r"([\d,]+)\s+jobs?\s+matched", re.I)
 GOOGLE_PAGE_SIZE = 20
+# Safety net only. The board reports its own total and the loop stops on an
+# empty page, so this bound exists so a markup change cannot spin forever.
+# 400 pages is 8,000 records, well past the ~3,600 the board carries.
+GOOGLE_MAX_PAGES = 400
 
 
 def _goog_records(html: str) -> list:
@@ -130,13 +142,36 @@ def _goog_records(html: str) -> list:
 async def google(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> list[Job]:
     base = "https://www.google.com/about/careers/applications/jobs/results"
     query = row.get("query", "")
+    # Alphabet subsidiaries (DeepMind, Waymo, Wing, YouTube) post to the same
+    # board behind a `company` filter. Without it a subsidiary row returns the
+    # entire Google board with every posting relabelled as the subsidiary, so
+    # `token` carries the org name the board expects.
+    org = row.get("token", "")
+    # Optional server-side location filter. The board accepts "United States"
+    # and normalizes "US" to the same 2,034-row set. Left blank the adapter
+    # pulls every country and runner.is_us_location decides, which keeps that
+    # judgement in one place rather than trusting Google's geo classification.
+    where = row.get("site", "")
     out: list[Job] = []
     seen: set[str] = set()
-    for page in range(1, 60):  # hard ceiling, the board is finite
+    total: int | None = None
+    # The board paginates to the end: at 20 records a page, page 181 returns
+    # the final 17 of 3,617 and page 200 returns nothing. An earlier
+    # range(1, 60) capped this at 1,180 and silently dropped ~2,400 postings,
+    # which the four query-sliced registry rows existed to work around. Trust
+    # the board's own total instead of a guessed page count.
+    for page in range(1, GOOGLE_MAX_PAGES):
         r = await c.get(base,
-                        params={"page": page, **({"q": query} if query else {})},
+                        params={"page": page,
+                                **({"q": query} if query else {}),
+                                **({"company": org} if org else {}),
+                                **({"location": where} if where else {})},
                         headers={**HEADERS, "Accept": "text/html"})
         r.raise_for_status()
+        if total is None:
+            m = _GOOG_TOTAL.search(r.text)
+            if m:
+                total = int(m.group(1).replace(",", ""))
         fresh = 0
         for j in _goog_records(r.text):
             jid = j[0]
@@ -169,7 +204,11 @@ async def google(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> lis
                 raw_id=jid,
                 department=j[7] if len(j) > 7 and isinstance(j[7], str) else "",
             ))
-        if fresh < GOOGLE_PAGE_SIZE:
+        # A short or empty page is the end of the board. The total is a second
+        # stop condition for the case where the last page happens to be full.
+        if fresh == 0 or fresh < GOOGLE_PAGE_SIZE:
+            break
+        if total is not None and len(seen) >= total:
             break
     return out
 
@@ -285,26 +324,81 @@ async def smartrecruiters(c: httpx.AsyncClient, company: str, row: dict[str, Any
 
 
 # ------------------------------------------------------------------- workday
-def _workday_location(locations_text: str, external_path: str) -> str:
-    """Extract location from Workday response.
+def _workday_ids(jobs: list[Job], paths: list[str]) -> list[Job]:
+    """Repair raw_id where bulletFields turned out not to identify anything.
 
-    API returns 'N Locations' as a summary. Fall back to URL path which
-    contains the primary location: /job/US-CA-Remote/... -> US-CA-Remote.
+    bulletFields is a tenant-configured *display* field, the bullets shown on
+    a result card. Most tenants put the requisition number there, which is why
+    it worked: 24 of 26 boards surveyed return values like JR2022322 or
+    R170608, unique per posting. Two do not. Intel shows the badge
+    "Spotlight Job" for 31 postings, and Moderna shows a city.
+
+    Because Job.key hashes raw_id, every colliding posting produced the same
+    key, so store.upsert inserted one and updated it with the rest. Intel lost
+    30 of 640 requisitions on every scan and Moderna 11 of 186, silently.
+
+    externalPath is unique per posting (verified 640/640 on Intel), so it is
+    the fallback. Only ids that actually collide are rewritten, which leaves
+    the 24 healthy boards' keys untouched and avoids re-keying their stored
+    history for a bug they never had.
     """
-    loc = locations_text or ""
-    # If it's just a count, extract from URL instead
-    if re.match(r'^\d+\s+locations?$', loc, re.IGNORECASE):
-        # URL path is /job/LOCATION/... extract LOCATION
-        parts = external_path.split('/')
-        if len(parts) > 2 and parts[1] == 'job':
-            loc_parts = parts[2].split('-')
-            # Format: country-state-city. Join state and city with space for
-            # multi-word cities: US-CA-Santa-Clara -> US, CA, Santa Clara
-            if len(loc_parts) >= 2:
-                return f"{loc_parts[0]}, {loc_parts[1]}, {' '.join(loc_parts[2:])}"
-            return parts[2]
+    counts = Counter(j.raw_id for j in jobs)
+    for j, path in zip(jobs, paths):
+        if counts[j.raw_id] > 1 or not j.raw_id:
+            j.raw_id = path
+    return jobs
+
+
+def _workday_path_location(external_path: str) -> str:
+    """Location recovered from the requisition path: /job/US-CA-Santa-Clara/...
+
+    A last resort. The convention varies by tenant, so the result is a rough
+    de-hyphenation rather than structured fields: NVIDIA writes
+    country-state-city (US-CA-Santa-Clara), Amcor writes facility-city-state
+    (AF-Batavia-IL), Warner Bros writes state-city (NY-New-York), and Accenture
+    writes a bare site name (Krakow-High-5ive-Development). Handing the whole
+    string to is_us_location, which looks for a US token anywhere, copes with
+    all four without needing to know which is which.
+    """
+    parts = external_path.split("/")
+    if len(parts) <= 2 or parts[1] != "job":
         return ""
-    return loc
+    seg = parts[2].split("-")
+    if len(seg) >= 2:
+        return f"{seg[0]}, {seg[1]}, {' '.join(seg[2:])}"
+    return parts[2]
+
+
+def _workday_location(locations_text: str, external_path: str,
+                      bullets: list[Any] | None = None) -> str:
+    """Best available location for a posting, in descending order of trust.
+
+    `locationsText` is authoritative when it names a place, but it has two
+    failure modes. It collapses to the summary "N Locations" for multi-site
+    reqs, and some tenants send nothing at all: every one of Accenture's 2,000
+    postings arrives with locationsText None. A blank location passes the US
+    filter by design (a hidden field is not evidence of a foreign one), so
+    those reqs were entering results regardless of country, London and Madrid
+    and Krakow included.
+
+    bulletFields is the fallback because it is still the board's own text, and
+    tenants that omit locationsText tend to put the location there instead
+    (Accenture sends ["R00282385", "Krakow, High 5ive Development"]). The URL
+    path is the last resort. bulletFields[0] is skipped: it is the requisition
+    number on most tenants, and _workday_ids already deals with it.
+    """
+    loc = (locations_text or "").strip()
+    if loc and not re.match(r"^\d+\s+locations?$", loc, re.IGNORECASE):
+        return loc
+    if not loc:
+        for b in (bullets or [])[1:]:
+            text = str(b or "").strip()
+            # A requisition number is not a location. Require a letter and
+            # reject anything that looks like an id.
+            if len(text) > 2 and re.search(r"[A-Za-z]{3}", text) \
+                    and not re.fullmatch(r"[A-Z]{0,3}[-_ ]?\d[\w-]*", text):
+                return text
+    return _workday_path_location(external_path)
 
 
 async def workday(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> list[Job]:
@@ -312,9 +406,20 @@ async def workday(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> li
     wd = row.get("wd") or "wd1"
     if not tenant or not site:
         raise ValueError("workday rows need tenant and site columns")
-    base = f"https://{tenant}.{wd}.myworkdayjobs.com"
+    # Two host shapes in the wild. The common one puts the tenant in the
+    # subdomain, {tenant}.wd1.myworkdayjobs.com. Shared-cluster tenants
+    # instead sit behind wd1.myworkdaysite.com with the tenant only in the
+    # path, which is how Wells Fargo serves. An explicit `host` selects the
+    # second; leaving it blank keeps the first, so existing rows are unchanged.
+    if row.get("host"):
+        base = f"https://{row['host']}"
+        public = f"{base}/recruiting/{tenant}/{site}"
+    else:
+        base = f"https://{tenant}.{wd}.myworkdayjobs.com"
+        public = f"{base}/{site}"
     url = f"{base}/wday/cxs/{tenant}/{site}/jobs"
     out, offset, total = [], 0, None
+    paths: list[str] = []   # parallel to `out`, for the raw_id repair below
     while True:  # Workday reports `total` only on the first page
         r = await c.post(
             url,
@@ -338,16 +443,18 @@ async def workday(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> li
             out.append(Job(
                 company=company,
                 title=j.get("title", ""),
-                url=f"{base}/{site}{path}",
-                location=_workday_location(j.get("locationsText", ""), path),
+                url=f"{public}{path}",
+                location=_workday_location(j.get("locationsText", ""), path,
+                                           j.get("bulletFields")),
                 ats="workday",
                 posted_at=posted,
                 posted_source=src,
                 raw_id=j.get("bulletFields", [path])[0] if j.get("bulletFields") else path,
             ))
+            paths.append(path)
         offset += 20
         if len(posts) < 20 or offset >= total or offset > 5000:
-            return out
+            return _workday_ids(out, paths)
 
 
 # -------------------------------------------------------------------- oracle
@@ -443,8 +550,84 @@ async def recruitee(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> 
     return out
 
 
+# ----------------------------------------------------------------- eightfold
+# Eightfold's public career-site API (they call it PCSX). Centralized: any
+# tenant is reachable at {host}/api/apply/v2/jobs, and app.eightfold.ai with
+# a `domain` param answers identically.
+#
+# PCSX is enabled per tenant. A tenant with it switched off returns
+# 403 {"message": "Not authorized for PCSX"} no matter what parameters you
+# send, so there is nothing to retry or guess. That failure reaches
+# runner._one and gets recorded, which is the honest outcome: those boards
+# need a different route entirely, not a better request.
+EIGHTFOLD_PAGE = 10   # server clamps to 10 however large `num` is
+# Advance by half a page so consecutive windows overlap.
+#
+# The board reorders results between requests, under every sort_by value it
+# accepts (relevance, timestamp, distance, recent) and with none at all.
+# Non-overlapping windows therefore both duplicate and *skip* rows: a full
+# sweep of Netflix's 476 returned 471 unique, losing 5. Measured on that
+# board, step=10 loses 5, step=8 loses 1, step=5 loses 0. Paging past the
+# reported total does not help, because the gaps are scattered rather than
+# at the end.
+#
+# The cost is 96 requests instead of 48. Worth it: a silently dropped
+# requisition is the exact failure this scanner exists to prevent, and it
+# would be invisible without comparing against the board's own count.
+EIGHTFOLD_STEP = 5
+
+
+async def eightfold(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> list[Job]:
+    host = row.get("host") or (f"{row['token']}.eightfold.ai" if row.get("token") else "")
+    if not host:
+        raise ValueError("eightfold rows need host or token")
+    domain = row.get("query", "")
+    out: list[Job] = []
+    seen: set[str] = set()
+    start, total = 0, None
+    while True:
+        r = await c.get(
+            f"https://{host}/api/apply/v2/jobs",
+            params={"start": start, "num": EIGHTFOLD_PAGE, "sort_by": "relevance",
+                    **({"domain": domain} if domain else {})},
+            headers={**HEADERS, "Referer": f"https://{host}/careers"},
+        )
+        r.raise_for_status()
+        d = r.json()
+        if total is None:
+            total = d.get("count") or 0
+        positions = d.get("positions") or []
+        for j in positions:
+            jid = str(j.get("id") or j.get("ats_job_id") or "")
+            if jid in seen:
+                continue        # overlapping windows re-serve rows by design
+            seen.add(jid)
+            # t_create and t_update are epoch seconds. dates.from_epoch_ms
+            # takes either, normalizing anything past 1e12 as milliseconds.
+            posted, src = dates.pick(
+                ("t_create", dates.from_epoch_ms(j.get("t_create"))),
+                ("t_update", dates.from_epoch_ms(j.get("t_update"))),
+            )
+            loc = j.get("location") or ", ".join(j.get("locations") or [])
+            out.append(Job(
+                company=company,
+                title=j.get("name") or j.get("posting_name") or "",
+                url=j.get("canonicalPositionUrl", ""),
+                location=loc,
+                ats="eightfold",
+                posted_at=posted,
+                posted_source=src,
+                raw_id=jid,
+                department=j.get("department") or j.get("business_unit") or "",
+            ))
+        start += EIGHTFOLD_STEP
+        if not positions or start >= total:
+            return out
+
+
 TIER_A = {
     "amazon": amazon,
+    "eightfold": eightfold,
     "google": google,
     "greenhouse": greenhouse,
     "lever": lever,
@@ -456,6 +639,6 @@ TIER_A = {
     "recruitee": recruitee,
 }
 
-TIER_B = {"icims", "successfactors", "taleo", "phenom", "eightfold", "avature", "custom"}
+TIER_B = {"icims", "successfactors", "taleo", "phenom", "avature", "custom"}
 
 KNOWN = set(TIER_A) | TIER_B
