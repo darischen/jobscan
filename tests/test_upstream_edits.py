@@ -74,6 +74,74 @@ def test_is_us_location(loc, want):
     assert runner.is_us_location(loc) is want
 
 
+@pytest.mark.parametrize("loc", [
+    # Every one of these read as US because a two-letter state code matched a
+    # foreign word: de/Delaware, La/Louisiana, Al/Alabama.
+    "Rio de Janeiro, Brazil", "Rio de Janeiro",
+    "Belen La Ribera, Costa Rica", "Abu Dhabi, Al Sila Tower",
+    "Ciudad de Mexico", "La Paz, Bolivia", "Al Khobar, Saudi Arabia",
+    "Santiago de Chile",
+    # An alphanumeric site code must not fake a state either.
+    "Cairo, CO55 Uvenues",
+])
+def test_foreign_names_with_state_code_particles_are_rejected(loc):
+    assert runner.is_us_location(loc) is False
+
+
+@pytest.mark.parametrize("loc", [
+    # A genuine state abbreviation is still enough on its own, including the
+    # ones whose codes double as foreign words.
+    "Wilmington, DE", "New Orleans, LA", "Birmingham, AL",
+    "Indianapolis, IN", "Portland, OR", "Philadelphia, PA", "Boise, ID",
+    "Chicago, IL", "AF Batavia IL", "Broomfield, Colorado, USA",
+])
+def test_real_state_codes_still_pass(loc):
+    assert runner.is_us_location(loc) is True
+
+
+@pytest.mark.parametrize("loc", [
+    "Location Negotiable", "Multiple Locations", "Various", "TBD",
+    "Unspecified", "Remote - Anywhere", "Fully Remote",
+])
+def test_placeless_values_pass_like_a_blank_field(loc):
+    """A non-answer is not evidence of a foreign location. Accenture alone
+    sends 292 'Location Negotiable' postings."""
+    assert runner.is_us_location(loc) is True
+
+
+@pytest.mark.parametrize("loc", ["Bengaluru", "Pune", "Riga", "London",
+                                 "Krakow, High 5Ive Development",
+                                 "Bengaluru, Bdc9A"])
+def test_bare_foreign_city_names_are_rejected(loc):
+    assert runner.is_us_location(loc) is False
+
+
+# --------------------------------------------------- workday location recovery
+@pytest.mark.parametrize("locations_text,path,bullets,want_us,why", [
+    ("US, CA, Santa Clara", "/job/US-CA-Santa-Clara/x_JR1", ["JR1"], True, "normal"),
+    ("2 Locations", "/job/US-CA-Santa-Clara/x_JR1", ["JR1"], True, "count falls back to path"),
+    (None, "/job/London/Sec_R1", ["R00311", "London"], False, "blank falls back to bulletFields"),
+    (None, "/job/IL---Chicago/x_R1", ["R1", "Chicago, IL"], True, "blank, US via bulletFields"),
+    (None, "/job/US-TX-Austin/x_R1", ["R1"], True, "no usable bullet falls back to path"),
+    (None, "/job/Kronberg-Campus-Kronberg-1/AI_R1",
+     ["R00345665", "Kronberg, Campus Kronberg"], False, "Accenture Germany"),
+])
+def test_workday_location_fallback_chain(locations_text, path, bullets, want_us, why):
+    """Accenture sends locationsText=None on all 2,000 postings. A blank
+    location passes the US filter by design, so every one of them was entering
+    results regardless of country."""
+    from jobscan.adapters import _workday_location
+    loc = _workday_location(locations_text, path, bullets)
+    assert runner.is_us_location(loc) is want_us, f"{why}: got {loc!r}"
+
+
+def test_workday_location_ignores_the_requisition_number():
+    from jobscan.adapters import _workday_location
+    # bulletFields[0] is the req number on most tenants; it is not a location.
+    loc = _workday_location(None, "/job/London/x_R1", ["R00282385", "London"])
+    assert loc == "London"
+
+
 # ------------------------------------------------------------- provenance
 def _rows(n, co="Co"):
     return [{"company": co, "ticker": "", "title": f"Engineer {i}",

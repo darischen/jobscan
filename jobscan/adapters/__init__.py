@@ -349,26 +349,56 @@ def _workday_ids(jobs: list[Job], paths: list[str]) -> list[Job]:
     return jobs
 
 
-def _workday_location(locations_text: str, external_path: str) -> str:
-    """Extract location from Workday response.
+def _workday_path_location(external_path: str) -> str:
+    """Location recovered from the requisition path: /job/US-CA-Santa-Clara/...
 
-    API returns 'N Locations' as a summary. Fall back to URL path which
-    contains the primary location: /job/US-CA-Remote/... -> US-CA-Remote.
+    A last resort. The convention varies by tenant, so the result is a rough
+    de-hyphenation rather than structured fields: NVIDIA writes
+    country-state-city (US-CA-Santa-Clara), Amcor writes facility-city-state
+    (AF-Batavia-IL), Warner Bros writes state-city (NY-New-York), and Accenture
+    writes a bare site name (Krakow-High-5ive-Development). Handing the whole
+    string to is_us_location, which looks for a US token anywhere, copes with
+    all four without needing to know which is which.
     """
-    loc = locations_text or ""
-    # If it's just a count, extract from URL instead
-    if re.match(r'^\d+\s+locations?$', loc, re.IGNORECASE):
-        # URL path is /job/LOCATION/... extract LOCATION
-        parts = external_path.split('/')
-        if len(parts) > 2 and parts[1] == 'job':
-            loc_parts = parts[2].split('-')
-            # Format: country-state-city. Join state and city with space for
-            # multi-word cities: US-CA-Santa-Clara -> US, CA, Santa Clara
-            if len(loc_parts) >= 2:
-                return f"{loc_parts[0]}, {loc_parts[1]}, {' '.join(loc_parts[2:])}"
-            return parts[2]
+    parts = external_path.split("/")
+    if len(parts) <= 2 or parts[1] != "job":
         return ""
-    return loc
+    seg = parts[2].split("-")
+    if len(seg) >= 2:
+        return f"{seg[0]}, {seg[1]}, {' '.join(seg[2:])}"
+    return parts[2]
+
+
+def _workday_location(locations_text: str, external_path: str,
+                      bullets: list[Any] | None = None) -> str:
+    """Best available location for a posting, in descending order of trust.
+
+    `locationsText` is authoritative when it names a place, but it has two
+    failure modes. It collapses to the summary "N Locations" for multi-site
+    reqs, and some tenants send nothing at all: every one of Accenture's 2,000
+    postings arrives with locationsText None. A blank location passes the US
+    filter by design (a hidden field is not evidence of a foreign one), so
+    those reqs were entering results regardless of country, London and Madrid
+    and Krakow included.
+
+    bulletFields is the fallback because it is still the board's own text, and
+    tenants that omit locationsText tend to put the location there instead
+    (Accenture sends ["R00282385", "Krakow, High 5ive Development"]). The URL
+    path is the last resort. bulletFields[0] is skipped: it is the requisition
+    number on most tenants, and _workday_ids already deals with it.
+    """
+    loc = (locations_text or "").strip()
+    if loc and not re.match(r"^\d+\s+locations?$", loc, re.IGNORECASE):
+        return loc
+    if not loc:
+        for b in (bullets or [])[1:]:
+            text = str(b or "").strip()
+            # A requisition number is not a location. Require a letter and
+            # reject anything that looks like an id.
+            if len(text) > 2 and re.search(r"[A-Za-z]{3}", text) \
+                    and not re.fullmatch(r"[A-Z]{0,3}[-_ ]?\d[\w-]*", text):
+                return text
+    return _workday_path_location(external_path)
 
 
 async def workday(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> list[Job]:
@@ -414,7 +444,8 @@ async def workday(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> li
                 company=company,
                 title=j.get("title", ""),
                 url=f"{public}{path}",
-                location=_workday_location(j.get("locationsText", ""), path),
+                location=_workday_location(j.get("locationsText", ""), path,
+                                           j.get("bulletFields")),
                 ats="workday",
                 posted_at=posted,
                 posted_source=src,
