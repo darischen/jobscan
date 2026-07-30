@@ -6,5 +6,14 @@ httpx>=0.27
 # Optional: jobscan/__init__.py skips injection if it is missing.
 truststore>=0.9
 
+# MCP server (python -m jobscan.mcp_server). Pin the minor: 1.27 exposes
+# mcp.server.fastmcp.FastMCP, which upstream is renaming to
+# mcp.server.MCPServer, so a major bump will need the import updated.
+mcp>=1.27,<2
+
+# tests
+pytest>=8
+pytest-asyncio>=0.24
+
 # tier B only, install when you get there:
 # playwright>=1.44

@@ -79,16 +79,34 @@ def to_result_rows(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def write_results(records: list[dict[str, Any]], started: datetime,
                   directory: str = RESULTS_DIR, path: str | None = None,
-                  embed_command: bool = False) -> Path:
+                  embed_command: bool = False,
+                  command: str | None = None) -> Path:
+    """`command` overrides the recorded invocation.
+
+    The provenance guarantee is that any result file traces back to what
+    produced it. sys.argv is right for the CLI and wrong for every other
+    caller: an MCP-triggered scan would otherwise record
+    `python -m jobscan.mcp_server` for every run and lose which tool call
+    actually asked for it.
+    """
     if path:
         dest = Path(path)
         dest.parent.mkdir(parents=True, exist_ok=True)
     else:
+        # The stamp is second-resolution, so two runs starting inside the same
+        # second would land in one folder and the later one would overwrite the
+        # earlier with no warning. A human at a shell never hit this; two MCP
+        # tool calls in a row hit it immediately. Claim the first free name.
+        base = Path(directory)
         ts = result_timestamp(started)
-        dest = Path(directory) / ts / (ts + ".csv")
+        stamp, n = ts, 1
+        while (base / stamp).exists():
+            n += 1
+            stamp = f"{ts}_{n}"
+        dest = base / stamp / (stamp + ".csv")
         dest.parent.mkdir(parents=True, exist_ok=True)
     cols = RESULT_COLUMNS + (["run_command"] if embed_command else [])
-    cmd = invocation()
+    cmd = command or invocation()
     with dest.open("w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=cols)
         w.writeheader()
@@ -99,14 +117,16 @@ def write_results(records: list[dict[str, Any]], started: datetime,
     return dest
 
 
-def write_sidecar(dest: Path, started: datetime, meta: dict[str, Any]) -> Path:
+def write_sidecar(dest: Path, started: datetime, meta: dict[str, Any],
+                  command: str | None = None) -> Path:
     """Full provenance next to the CSV, without polluting the CSV itself."""
-    ts = result_timestamp(started)
-    side = dest.parent / (ts + ".meta.json")
+    # Derived from dest rather than recomputed from `started`, so a folder that
+    # had to be disambiguated keeps its sidecar named to match its CSV.
+    side = dest.parent / (dest.stem + ".meta.json")
     side.write_text(json.dumps({
         "file": dest.name,
-        "command": invocation(),
-        "argv": sys.argv,
+        "command": command or invocation(),
+        "argv": sys.argv if command is None else [],
         "cwd": str(Path.cwd()),
         "started": started.isoformat(timespec="seconds"),
         "finished": datetime.now().astimezone().isoformat(timespec="seconds"),
@@ -116,11 +136,21 @@ def write_sidecar(dest: Path, started: datetime, meta: dict[str, Any]) -> Path:
 
 
 def append_manifest(dest: Path, started: datetime, meta: dict[str, Any],
-                    directory: str = RESULTS_DIR) -> Path:
+                    directory: str = RESULTS_DIR,
+                    command: str | None = None) -> Path:
     """One row per run, so every result file is traceable from one place."""
     path = Path(directory) / MANIFEST
     path.parent.mkdir(parents=True, exist_ok=True)
-    fresh = not path.exists()
+    # A file that exists but holds only a header without its newline (the old
+    # bug) would otherwise get the first data row fused onto the header line.
+    fresh = not path.exists() or path.stat().st_size == 0
+    if not fresh:
+        with path.open("rb") as f:
+            f.seek(-1, 2)
+            needs_newline = f.read(1) not in (b"\n", b"\r")
+        if needs_newline:
+            with path.open("a", encoding="utf-8") as f:
+                f.write("\n")
     with path.open("a", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=MANIFEST_COLUMNS, extrasaction="ignore")
         if fresh:
@@ -129,7 +159,7 @@ def append_manifest(dest: Path, started: datetime, meta: dict[str, Any],
             "file": dest.name,
             "started": started.strftime("%Y-%m-%d %I:%M:%S %p"),
             "finished": datetime.now().astimezone().strftime("%Y-%m-%d %I:%M:%S %p"),
-            "command": invocation(),
+            "command": command or invocation(),
             **meta,
         })
     return path

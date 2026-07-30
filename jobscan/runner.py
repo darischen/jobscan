@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+from collections.abc import Callable
 from typing import Any
 
 import httpx
@@ -87,32 +88,44 @@ def is_us_location(loc: str | None) -> bool:
     return False
 
 
-async def _one(client: httpx.AsyncClient, sem: asyncio.Semaphore, row: dict[str, Any], retries: int, errors: list[tuple[str, str, str]]) -> list[Job]:
+async def _one(client: httpx.AsyncClient, sem: asyncio.Semaphore, row: dict[str, Any], retries: int, errors: list[tuple[str, str, str]], on_board_done: Callable[[str, int], None] | None = None) -> list[Job]:
     fn = TIER_A[row["ats"]]
-    async with sem:
-        for attempt in range(retries + 1):
-            try:
-                jobs = await fn(client, row["company"], row)
-                for j in jobs:
-                    j.ticker = row.get("ticker", "")
-                return jobs
-            except Exception as e:  # noqa: BLE001
-                if attempt == retries:
-                    errors.append((row["company"], row["ats"], f"{type(e).__name__}: {e}"))
-                    return []
-                await asyncio.sleep(1.5 * (attempt + 1))
-    return []
+    jobs: list[Job] = []
+    try:
+        async with sem:
+            for attempt in range(retries + 1):
+                try:
+                    jobs = await fn(client, row["company"], row)
+                    for j in jobs:
+                        j.ticker = row.get("ticker", "")
+                    return jobs
+                except Exception as e:  # noqa: BLE001
+                    if attempt == retries:
+                        errors.append((row["company"], row["ats"],
+                                       f"{type(e).__name__}: {e}"))
+                        jobs = []
+                        return jobs
+                    await asyncio.sleep(1.5 * (attempt + 1))
+        return jobs
+    finally:
+        # Fires on success and on give-up alike, so a caller tracking progress
+        # never stalls on a board that failed. asyncio.gather reports nothing
+        # until every coroutine finishes, so this hook is the only way to see
+        # progress during a long scan.
+        if on_board_done is not None:
+            on_board_done(row["company"], len(jobs))
 
 
 async def scan(rows: list[dict[str, Any]], concurrency: int = 20, timeout: float = 30.0,
-               retries: int = 1) -> tuple[list[Job], list[tuple[str, str, str]]]:
+               retries: int = 1,
+               on_board_done: Callable[[str, int], None] | None = None) -> tuple[list[Job], list[tuple[str, str, str]]]:
     sem = asyncio.Semaphore(concurrency)
     errors: list[tuple[str, str, str]] = []
     limits = httpx.Limits(max_connections=concurrency + 10,
                           max_keepalive_connections=concurrency)
     async with httpx.AsyncClient(timeout=timeout, limits=limits,
                                  follow_redirects=True, headers=HEADERS) as client:
-        coros = (_one(client, sem, r, retries, errors) for r in rows)
+        coros = (_one(client, sem, r, retries, errors, on_board_done) for r in rows)
         batches: list[list[Job]] = await asyncio.gather(*coros)
     jobs: list[Job] = []
     for b in batches:
