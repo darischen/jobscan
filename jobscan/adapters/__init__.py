@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections import Counter
 from typing import Any
 
 import httpx
@@ -323,6 +324,31 @@ async def smartrecruiters(c: httpx.AsyncClient, company: str, row: dict[str, Any
 
 
 # ------------------------------------------------------------------- workday
+def _workday_ids(jobs: list[Job], paths: list[str]) -> list[Job]:
+    """Repair raw_id where bulletFields turned out not to identify anything.
+
+    bulletFields is a tenant-configured *display* field, the bullets shown on
+    a result card. Most tenants put the requisition number there, which is why
+    it worked: 24 of 26 boards surveyed return values like JR2022322 or
+    R170608, unique per posting. Two do not. Intel shows the badge
+    "Spotlight Job" for 31 postings, and Moderna shows a city.
+
+    Because Job.key hashes raw_id, every colliding posting produced the same
+    key, so store.upsert inserted one and updated it with the rest. Intel lost
+    30 of 640 requisitions on every scan and Moderna 11 of 186, silently.
+
+    externalPath is unique per posting (verified 640/640 on Intel), so it is
+    the fallback. Only ids that actually collide are rewritten, which leaves
+    the 24 healthy boards' keys untouched and avoids re-keying their stored
+    history for a bug they never had.
+    """
+    counts = Counter(j.raw_id for j in jobs)
+    for j, path in zip(jobs, paths):
+        if counts[j.raw_id] > 1 or not j.raw_id:
+            j.raw_id = path
+    return jobs
+
+
 def _workday_location(locations_text: str, external_path: str) -> str:
     """Extract location from Workday response.
 
@@ -363,6 +389,7 @@ async def workday(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> li
         public = f"{base}/{site}"
     url = f"{base}/wday/cxs/{tenant}/{site}/jobs"
     out, offset, total = [], 0, None
+    paths: list[str] = []   # parallel to `out`, for the raw_id repair below
     while True:  # Workday reports `total` only on the first page
         r = await c.post(
             url,
@@ -393,9 +420,10 @@ async def workday(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> li
                 posted_source=src,
                 raw_id=j.get("bulletFields", [path])[0] if j.get("bulletFields") else path,
             ))
+            paths.append(path)
         offset += 20
         if len(posts) < 20 or offset >= total or offset > 5000:
-            return out
+            return _workday_ids(out, paths)
 
 
 # -------------------------------------------------------------------- oracle

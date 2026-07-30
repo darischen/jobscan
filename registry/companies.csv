@@ -30,6 +30,7 @@ Coupang,,greenhouse,coupang,,,,,,,probed  confirmed 642 jobs
 Databricks,,greenhouse,databricks,,,,,https://www.databricks.com/company/careers/open-positions,,private
 Datadog,DDOG,greenhouse,datadog,,,,,https://careers.datadoghq.com/,,auto-discovered from name
 DeepMind,,google,DeepMind,,,,,https://www.google.com/about/careers/applications/jobs/results?company=DeepMind,,Google board filtered to company=DeepMind
+DeepMind,,greenhouse,deepmind,,,,,https://job-boards.greenhouse.io/deepmind,,"second board, 10 jobs, 0 title overlap with the Google-hosted row above"
 Dell,DELL,oracle,,,CX_2,,iawmqy.fa.ocs.oraclecloud.com,https://jobs.dell.com/,,
 DigitalOcean,,custom,,,,,www.digitalocean.com,https://www.digitalocean.com/careers/,,tier B - Greenhouse-styled UI
 Discord,,greenhouse,discord,,,,,https://job-boards.greenhouse.io/discord,,
@@ -44,6 +45,7 @@ Figma,FIG,greenhouse,figma,,,,,https://www.figma.com/careers/,,
 Ford,F,oracle,,,CX_1,,efds.fa.em5.oraclecloud.com,https://apply.ford.com/en/sites/CX_1/jobs,,confirmed 845 jobs; needed OS trust store
 Genentech,DNA,workday,,roche,ROG-A2O-GENE,wd3,,https://careers.gene.com/us/en/search-results,,confirmed 232 jobs
 General Motors,GM,workday,,generalmotors,Careers_GM,wd5,,https://generalmotors.wd5.myworkdayjobs.com/Careers_GM/,,
+GFiber,,greenhouse,googlefiber,,,,,https://www.gfiber.com/careers/,,confirmed 81 jobs; found via the Google board org facet
 GitHub,,icims,,,,,www.github.careers,https://www.github.careers/careers-home/jobs,,tier B
 GitLab,GTLB,greenhouse,gitlab,,,,,https://about.gitlab.com/jobs/,,
 Goldman Sachs,GS,oracle,,,LateralHiring,,hdpc.fa.us2.oraclecloud.com,https://hdpc.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/LateralHiring/jobs,,confirmed 1317 jobs
@@ -107,9 +109,9 @@ UnitedHealth Group,UNH,taleo,,,,,careers.unitedhealthgroup.com,https://careers.u
 Upwork,,greenhouse,upwork,,,,,https://job-boards.greenhouse.io/upwork,,probed  confirmed 10 jobs
 Vercel,,greenhouse,vercel,,,,,https://vercel.com/careers/,,confirmed 79 jobs
 Warner Bros Discovery,WBD,workday,,warnerbros,global,wd5,,https://warnerbros.wd5.myworkdayjobs.com/en-US/global/,,confirmed 445 jobs
-Waymo,,google,Waymo,,,,,https://www.google.com/about/careers/applications/jobs/results?company=Waymo,,Google board filtered to company=Waymo
+Waymo,,greenhouse,waymo,,,,,https://careers.withwaymo.com/jobs/search,,"confirmed 398 jobs; own greenhouse board, Google board had only 1"
 Wells Fargo,WFC,workday,,wf,WellsFargoJobs,wd1,wd1.myworkdaysite.com,https://wd1.myworkdaysite.com/recruiting/wf/WellsFargoJobs/,,confirmed 1866 jobs; shared-cluster myworkdaysite host
-Wing,,google,Wing,,,,,https://www.google.com/about/careers/applications/jobs/results?company=Wing,,Google board filtered to company=Wing
+Wing,,greenhouse,wing,,,,,https://www.google.com/about/careers/applications/jobs/results?company=Wing,,"confirmed 38 jobs; own greenhouse board, Google board had only 1"
 Workday,WDAY,workday,,workday,Workday,wd5,,https://workday.wd5.myworkdayjobs.com/Workday,,
 XAI,,greenhouse,xai,,,,,https://job-boards.greenhouse.io/xai/,,includes X/Twitter hiring post-merger
 YouTube,,google,YouTube,,,,,https://www.google.com/about/careers/applications/jobs/results?company=YouTube,,Google board filtered to company=YouTube

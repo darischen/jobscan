@@ -25,13 +25,13 @@ Amazon alone would have been misfiled, and it carries 10,000 postings.
 
 | | Before | After |
 |---|---|---|
-| Registry rows | 118 | **115** |
-| Tier A | 79 | **87** |
+| Registry rows | 118 | **117** |
+| Tier A | 79 | **89** |
 | Tier B | 39 | **28** |
-| `verify.py` ok | 71 | **84** |
+| `verify.py` ok | 71 | **85** |
 | `verify.py` fail | 4 | **0** |
-| Postings visible | 35,664 | **56,733** |
-| Early-career hits | 2,171 | **2,647** |
+| Postings visible | 35,664 | **57,255** |
+| Early-career hits | 2,171 | **2,747** |
 
 The hit count understates the gain. Before, Google's four query slices each counted
 their own matches (65 + 154 + 148 + 24 = 391) over heavily overlapping result sets,
@@ -147,12 +147,46 @@ ADVANCED 1,113), `location=United States` (2,034 of 3,617), and `company` for th
 seven orgs. `GFiber` and `Verily Life Sciences` appear in that facet and are absent
 from the registry, though at ~1 posting each.
 
+**Workday's `bulletFields` is not an identifier, and trusting it lost postings.**
+It is a tenant-configured *display* field, the bullets on a result card. 24 of the
+26 boards surveyed put the requisition number there (`JR2022322`, `R170608`), which
+is why it appeared to work. Intel puts the badge `"Spotlight Job"` on 31 postings and
+Moderna puts a city (`"Cambridge, Massachusetts"`).
+
+Since `Job.key` hashes `raw_id`, every colliding posting produced one key, so
+`store.upsert` inserted one row and updated it with the rest. **Intel silently lost
+30 of 640 requisitions on every scan, Moderna 11 of 186.** `externalPath` is unique
+per posting (verified 640/640 on Intel) and is now the fallback, applied only to ids
+that actually collide so the 24 healthy boards keep their existing keys and stored
+history.
+
+Overlapping windows were the wrong hypothesis here. Intel returns exactly 610 unique
+at step 20, 15, and 10, which is what proved the loss was identity collision rather
+than pagination jitter.
+
+**Alphabet subsidiaries mostly have their own boards, and they are much larger.**
+Found only because the "1 posting" result was treated as a smell rather than as
+reconciled. Note the triage method missed these: only tier B rows were re-probed, and
+these were already tier A and nominally working.
+
+| Company | Google board | Own board |
+|---|---|---|
+| Waymo | 1 | greenhouse `waymo`, **398** (54 early-career hits) |
+| GFiber | ~1 | greenhouse `googlefiber`, **81** (was absent from the registry) |
+| Wing | 1 | greenhouse `wing`, **38** |
+| DeepMind | **87** | greenhouse `deepmind`, 10, zero title overlap, kept as a second row |
+| YouTube | **145** | none found, stays on the Google board |
+| Verily Life Sciences | ~1 | none found, not added |
+
 ## Open items found during the pass, not fixed
 
-1. **Intel reports 1 duplicate requisition id**, Moderna 11. Pagination overlap in
-   the workday adapter, and the same class of bug the eightfold adapter had to solve.
-   Worth checking whether workday needs overlapping windows too, since its
-   `paginated` check would be the only thing that ever revealed it.
+1. **Accenture reports 40 duplicate ids** across 1,997 postings. Unlike Intel and
+   Moderna its `bulletFields` are genuine requisition numbers, so this is true
+   pagination overlap against Workday's platform-level 2,000 result cap. The registry
+   `notes` for that row already prescribe the remedy: add query rows to slice the
+   board, the same technique Google needed before its ceiling was lifted.
+2. **Verily Life Sciences and YouTube** have no standalone board, so they depend on
+   the Google org facet. YouTube is well covered at 145; Verily is not, at ~1.
 3. **Accenture caps at 2,000** postings and reports 95 duplicate requisition ids.
    Pre-existing.
 4. **The Google adapter truncates at 1,180 postings.** Its loop is

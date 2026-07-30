@@ -3,193 +3,193 @@
     "count": 177,
     "ats": "greenhouse",
     "company": "Figma",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Adobe": {
     "count": 852,
     "ats": "workday",
     "company": "Adobe",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Airbnb": {
     "count": 189,
     "ats": "greenhouse",
     "company": "Airbnb",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Anthropic": {
     "count": 402,
     "ats": "greenhouse",
     "company": "Anthropic",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Cloudflare": {
     "count": 281,
     "ats": "greenhouse",
     "company": "Cloudflare",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Coinbase": {
     "count": 155,
     "ats": "greenhouse",
     "company": "Coinbase",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Databricks": {
     "count": 804,
     "ats": "greenhouse",
     "company": "Databricks",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Datadog": {
     "count": 425,
     "ats": "greenhouse",
     "company": "Datadog",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Dell": {
-    "count": 351,
+    "count": 353,
     "ats": "oracle",
     "company": "Dell",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "DoorDash": {
     "count": 468,
     "ats": "greenhouse",
     "company": "DoorDash",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "GitLab": {
     "count": 183,
     "ats": "greenhouse",
     "company": "GitLab",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Instacart": {
     "count": 125,
     "ats": "greenhouse",
     "company": "Instacart",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Linear": {
     "count": 23,
     "ats": "ashby",
     "company": "Linear",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Micron": {
-    "count": 2743,
+    "count": 2745,
     "ats": "workday",
     "company": "Micron",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "NVIDIA": {
-    "count": 2000,
+    "count": 1999,
     "ats": "workday",
     "company": "NVIDIA",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "OpenAI": {
-    "count": 749,
+    "count": 750,
     "ats": "ashby",
     "company": "OpenAI",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Palantir": {
     "count": 286,
     "ats": "lever",
     "company": "Palantir",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Pinterest": {
     "count": 207,
     "ats": "greenhouse",
     "company": "Pinterest",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Ramp": {
     "count": 123,
     "ats": "ashby",
     "company": "Ramp",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Reddit": {
     "count": 195,
     "ats": "greenhouse",
     "company": "Reddit",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Roblox": {
     "count": 216,
     "ats": "greenhouse",
     "company": "Roblox",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Salesforce": {
-    "count": 1490,
+    "count": 1487,
     "ats": "workday",
     "company": "Salesforce",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Snowflake": {
     "count": 410,
     "ats": "ashby",
     "company": "Snowflake",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Stripe": {
-    "count": 540,
+    "count": 541,
     "ats": "greenhouse",
     "company": "Stripe",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Twilio": {
     "count": 188,
     "ats": "greenhouse",
     "company": "Twilio",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Workday": {
     "count": 342,
     "ats": "workday",
     "company": "Workday",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Accenture": {
-    "count": 1999,
+    "count": 1997,
     "ats": "workday",
     "company": "Accenture",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Google": {
-    "count": 3617,
+    "count": 3610,
     "ats": "google",
     "company": "Google",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Spotify": {
     "count": 103,
     "ats": "lever",
     "company": "Spotify",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Lowe's": {
     "count": 5020,
     "ats": "workday",
     "company": "Lowe's",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "3M": {
     "count": 653,
     "ats": "workday",
     "company": "3M",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "AbbVie": {
     "count": 1645,
     "ats": "smartrecruiters",
     "company": "AbbVie",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Upwork Enterprise": {
     "count": 10,
@@ -200,289 +200,289 @@
     "count": 43,
     "ats": "workday",
     "company": "NBA",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "IXL": {
     "count": 119,
     "ats": "greenhouse",
     "company": "IXL",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Zscaler": {
-    "count": 305,
+    "count": 307,
     "ats": "greenhouse",
     "company": "Zscaler",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Amcor": {
     "count": 778,
     "ats": "workday",
     "company": "Amcor",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Agilent Technologies": {
     "count": 35,
     "ats": "workday",
     "company": "Agilent Technologies",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "AES Corporation": {
     "count": 107,
     "ats": "workday",
     "company": "AES Corporation",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Ameren": {
     "count": 67,
     "ats": "workday",
     "company": "Ameren",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Uber": {
-    "count": 635,
+    "count": 634,
     "ats": "oracle",
     "company": "Uber",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Tinder": {
     "count": 82,
     "ats": "lever",
     "company": "Tinder",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Coupang": {
-    "count": 650,
+    "count": 649,
     "ats": "greenhouse",
     "company": "Coupang",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Snapchat": {
     "count": 170,
     "ats": "workday",
     "company": "Snapchat",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "XAI": {
     "count": 198,
     "ats": "greenhouse",
     "company": "XAI",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Samsung": {
     "count": 606,
     "ats": "workday",
     "company": "Samsung",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "LG Electronics": {
     "count": 96,
     "ats": "greenhouse",
     "company": "LG Electronics",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Sony": {
     "count": 98,
     "ats": "workday",
     "company": "Sony",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "SK Hynix": {
     "count": 45,
     "ats": "greenhouse",
     "company": "SK Hynix",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "General Motors": {
     "count": 885,
     "ats": "workday",
     "company": "General Motors",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Lyft": {
-    "count": 161,
+    "count": 162,
     "ats": "greenhouse",
     "company": "Lyft",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Robinhood": {
     "count": 126,
     "ats": "greenhouse",
     "company": "Robinhood",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Elastic": {
-    "count": 221,
+    "count": 223,
     "ats": "greenhouse",
     "company": "Elastic",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "JPMorgan Chase": {
     "count": 5100,
     "ats": "oracle",
     "company": "JPMorgan Chase",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Box": {
     "count": 116,
     "ats": "greenhouse",
     "company": "Box",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Goldman Sachs": {
     "count": 1307,
     "ats": "oracle",
     "company": "Goldman Sachs",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "ServiceNow": {
-    "count": 429,
+    "count": 430,
     "ats": "smartrecruiters",
     "company": "ServiceNow",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Notion": {
     "count": 116,
     "ats": "ashby",
     "company": "Notion",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Airtable": {
     "count": 41,
     "ats": "greenhouse",
     "company": "Airtable",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Moderna": {
     "count": 186,
     "ats": "workday",
     "company": "Moderna",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Genentech": {
     "count": 231,
     "ats": "workday",
     "company": "Genentech",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Illumina": {
     "count": 128,
     "ats": "workday",
     "company": "Illumina",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Disney": {
     "count": 669,
     "ats": "workday",
     "company": "Disney",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "YouTube": {
-    "count": 145,
+    "count": 144,
     "ats": "google",
     "company": "YouTube",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Wing": {
-    "count": 1,
-    "ats": "google",
+    "count": 38,
+    "ats": "greenhouse",
     "company": "Wing",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Warner Bros Discovery": {
-    "count": 439,
+    "count": 441,
     "ats": "workday",
     "company": "Warner Bros Discovery",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "DeepMind": {
     "count": 87,
     "ats": "google",
     "company": "DeepMind",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:07:34+00:00"
   },
   "Waymo": {
-    "count": 1,
-    "ats": "google",
+    "count": 398,
+    "ats": "greenhouse",
     "company": "Waymo",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Activision Blizzard": {
     "count": 57,
     "ats": "workday",
     "company": "Activision Blizzard",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Take-Two Interactive": {
     "count": 36,
     "ats": "greenhouse",
     "company": "Take-Two Interactive",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Upwork": {
     "count": 11,
     "ats": "greenhouse",
     "company": "Upwork",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Ubisoft": {
     "count": 273,
     "ats": "smartrecruiters",
     "company": "Ubisoft",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Cohere": {
     "count": 137,
     "ats": "ashby",
     "company": "Cohere",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Stability AI": {
     "count": 5,
     "ats": "greenhouse",
     "company": "Stability AI",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Discord": {
     "count": 43,
     "ats": "greenhouse",
     "company": "Discord",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Bloomberg": {
     "count": 57,
     "ats": "workday",
     "company": "Bloomberg",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Amazon": {
     "count": 10000,
     "ats": "amazon",
     "company": "Amazon",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Okta": {
     "count": 362,
     "ats": "greenhouse",
     "company": "Okta",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Dropbox": {
     "count": 28,
     "ats": "greenhouse",
     "company": "Dropbox",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "American Express": {
     "count": 352,
     "ats": "oracle",
     "company": "American Express",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Epic Games": {
     "count": 137,
     "ats": "greenhouse",
     "company": "Epic Games",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Google [software engineer]": {
     "count": 1180,
@@ -494,31 +494,31 @@
     "count": 26,
     "ats": "greenhouse",
     "company": "10x Genomics",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Intel": {
-    "count": 641,
+    "count": 640,
     "ats": "workday",
     "company": "Intel",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Vercel": {
     "count": 79,
     "ats": "greenhouse",
     "company": "Vercel",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Ford": {
     "count": 852,
     "ats": "oracle",
     "company": "Ford",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Oracle": {
     "count": 2312,
     "ats": "oracle",
     "company": "Oracle",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Google [early career]": {
     "count": 145,
@@ -539,15 +539,33 @@
     "checked": "2026-07-30T06:46:04+00:00"
   },
   "Wells Fargo": {
-    "count": 1812,
+    "count": 1813,
     "ats": "workday",
     "company": "Wells Fargo",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
   },
   "Netflix": {
     "count": 476,
     "ats": "eightfold",
     "company": "Netflix",
-    "checked": "2026-07-30T07:05:41+00:00"
+    "checked": "2026-07-30T07:29:38+00:00"
+  },
+  "DeepMind [deepmind]": {
+    "count": 10,
+    "ats": "greenhouse",
+    "company": "DeepMind",
+    "checked": "2026-07-30T07:29:38+00:00"
+  },
+  "GFiber": {
+    "count": 81,
+    "ats": "greenhouse",
+    "company": "GFiber",
+    "checked": "2026-07-30T07:29:38+00:00"
+  },
+  "DeepMind [DeepMind]": {
+    "count": 87,
+    "ats": "google",
+    "company": "DeepMind",
+    "checked": "2026-07-30T07:29:38+00:00"
   }
 }
