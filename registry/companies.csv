@@ -66,7 +66,7 @@ Microsoft,MSFT,successfactors,,,,,apply.careers.microsoft.com,https://apply.care
 Moderna,MRNA,workday,,modernatx,M_tx,wd1,,https://modernatx.wd1.myworkdayjobs.com/M_tx,,confirmed 189 jobs
 Morgan Stanley,MS,custom,,,,,www.morganstanley.com,https://www.morganstanley.com/careers,,tier B
 NBA,,workday,,nba,nbacareers,wd108,,https://careers.nba.com/c/technology-jobs,,confirmed 45 jobs
-Netflix,NFLX,eightfold,,,,,explore.jobs.netflix.net,https://explore.jobs.netflix.net/careers,,tier B - moved off Lever
+Netflix,NFLX,eightfold,,,,,explore.jobs.netflix.net,https://explore.jobs.netflix.net/careers,,confirmed 476 jobs via eightfold PCSX api
 Notion,,ashby,notion,,,,,https://jobs.ashbyhq.com/notion,,confirmed 116 jobs
 NVIDIA,NVDA,workday,,nvidia,NVIDIAExternalCareerSite,wd5,,https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite,,
 Okta,OKTA,greenhouse,okta,,,,,https://www.okta.com/company/careers/job-listing/,,confirmed 363 jobs
@@ -75,9 +75,9 @@ Oracle,ORCL,oracle,,,jobsearch,,eeho.fa.us2.oraclecloud.com,https://careers.orac
 Palantir,PLTR,lever,palantir,,,,,https://www.palantir.com/careers/,,
 Panasonic,PCRFY,icims,,,,,uscareers-napanasonic.icims.com,https://uscareers-napanasonic.icims.com/,,
 Paramount Global,PARA,successfactors,,,,,careers.paramount.com,https://careers.paramount.com/go/All-Current-Job-Opportunities/8710000/,,tier B
-PayPal,PYPL,eightfold,,,,,paypal.eightfold.ai,https://paypal.eightfold.ai/careers,,tier B
+PayPal,PYPL,custom,,,,,paypal.eightfold.ai,https://paypal.eightfold.ai/careers,,eightfold tenant with PCSX disabled: /api/apply/v2/jobs returns 403 'Not authorized for PCSX' for any params; needs another route
 Pinterest,PINTEREST,greenhouse,pinterest,,,,,https://www.pinterestcareers.com,,
-Qualcomm,QCOM,eightfold,,,,,careers.qualcomm.com,https://careers.qualcomm.com/careers,,tier B
+Qualcomm,QCOM,custom,,,,,careers.qualcomm.com,https://careers.qualcomm.com/careers,,eightfold tenant with PCSX disabled: /api/apply/v2/jobs returns 403 'Not authorized for PCSX' for any params; needs another route
 Ramp,,ashby,ramp,,,,,https://ramp.com/careers,,private
 Reddit,RDDT,greenhouse,reddit,,,,,https://redditinc.com/careers,,
 Robinhood,,greenhouse,robinhood,,,,,https://job-boards.greenhouse.io/robinhood/,,confirmed 124 jobs

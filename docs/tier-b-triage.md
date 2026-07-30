@@ -25,16 +25,23 @@ Amazon alone would have been misfiled, and it carries 10,000 postings.
 
 | | Before | After |
 |---|---|---|
-| Registry rows | 118 | 118 |
-| Tier A | 79 | **89** |
-| Tier B | 39 | **29** |
-| `verify.py` ok | 71 | **81** |
+| Registry rows | 118 | **115** |
+| Tier A | 79 | **87** |
+| Tier B | 39 | **28** |
+| `verify.py` ok | 71 | **84** |
 | `verify.py` fail | 4 | **0** |
-| Postings visible | 35,664 | **55,694** |
-| Early-career hits | 2,171 | **2,807** |
+| Postings visible | 35,664 | **56,733** |
+| Early-career hits | 2,171 | **2,647** |
 
-Eleven rows moved to tier A. Ten needed only correct CSV cells. One needed a
-one-branch adapter change.
+The hit count understates the gain. Before, Google's four query slices each counted
+their own matches (65 + 154 + 148 + 24 = 391) over heavily overlapping result sets,
+so the same requisition was counted several times. The single collapsed row reports
+192 real matches. The 2,647 figure is deduplicated where 2,171 was not.
+
+Twelve rows moved to tier A: ten needed only correct CSV cells, one needed a
+one-branch Workday change, and Netflix needed the new eightfold adapter. Registry
+row count *fell* because Google's four query slices collapsed into one once the
+pagination ceiling that forced them was removed.
 
 ## Difficulty tiers
 
@@ -68,13 +75,13 @@ each adapter amortizes across its family and follows the existing contract
 |---|---|---|---|
 | successfactors | 7 | Microsoft, SAP, TSMC, Hyundai, Paramount Global, Supermicro, Altria | Untested. Largest family, so highest payoff if a shared endpoint exists. |
 | icims | 5 | AMD, Atlassian, Charles Schwab, GitHub, Panasonic | `?format=json` returned HTML 404 / 405. Needs the newer `careers-home` API path. |
-| eightfold | 3 | Netflix, PayPal, Qualcomm | **Netflix confirmed working: 476 jobs** via `/api/apply/v2/jobs?domain=netflix.com`. PayPal and Qualcomm return 403 on the same shape, so tenant configuration varies. |
-| phenom | 1 | Cisco | Phenom markers present in the page served from `careers.cisco.com`. Registry still says `custom`. |
 | avature | 1 | Intuit | Avature markers present at `jobs.intuit.com`. |
 | taleo | 1 | UnitedHealth Group | Untested. |
+| phenom | 1 | Cisco | Phenom markers in the page served from `careers.cisco.com`. Registry still says `custom`, so it is counted under Tier C below until an adapter exists. |
 
-Start with eightfold. One tenant already works, so the remaining question is narrow
-(what differs about the 403 tenants) rather than open-ended.
+**eightfold is done.** Adapter written, Netflix in tier A at 476 postings with zero
+duplicates and 100 percent carrying a board date. See "Resolved" below for why it
+serves one row rather than three.
 
 Do not start with iCIMS or SuccessFactors on row count alone. Both are entirely
 untested, so their row counts are potential, not confirmed.
@@ -93,24 +100,59 @@ untested, so their row counts are potential, not confirmed.
 
 ### Tier C: browser required, or not yet identified
 
-6 rows. No board marker in server-rendered HTML and no slug match across any
-token ATS. These are the only rows that justify Playwright.
+8 rows. No board marker in server-rendered HTML and no slug match across any
+token ATS, or a known board that refuses public API access.
 
-Broadcom, DigitalOcean, Electronic Arts, Fidelity, Morgan Stanley, Shopify.
+Broadcom, DigitalOcean, Electronic Arts, Fidelity, Morgan Stanley, Shopify, plus
+**PayPal** and **Qualcomm** (eightfold tenants with PCSX disabled, see Resolved
+below). Cisco sits here too until a phenom adapter exists.
 
 Shopify and DigitalOcean are worth one more manual look before committing to a
 browser. Companies that size usually sit on a standard board, and `discover.py`
 only probes name-derived slugs, which misses a board token unrelated to the
 company name.
 
+## Resolved after the first triage draft
+
+**eightfold serves one row, not three.** PayPal and Qualcomm return
+`403 {"message": "Not authorized for PCSX"}` for every parameter combination, on
+their own hosts and on `app.eightfold.ai` with a `domain` param. PCSX is Eightfold's
+public career-site API, enabled per tenant, and those two have it switched off. No
+request shape fixes an authorization setting. Both moved to `custom` with that
+recorded in `notes`, so they now belong to Tier B2/C and need a different route.
+
+`app.eightfold.ai?domain=netflix.com` returns the same 476 rows as Netflix's own
+host, confirming the API is centralized and the difference is purely tenant config.
+
+**The eightfold board reorders results between requests.** Every `sort_by` value it
+accepts (`relevance`, `timestamp`, `distance`, `recent`) and none at all produce
+both duplicates and skips. A non-overlapping sweep of Netflix's 476 returned 471
+unique, losing 5 silently. Measured: step=10 loses 5, step=8 loses 1, step=5 loses 0.
+Paging past the reported total does not help, because gaps are scattered rather than
+trailing. The adapter advances by half a page and dedupes on id, costing 96 requests
+instead of 48 for complete coverage.
+
+The general lesson: compare against the board's own count. Without `count` there
+would have been no signal that 5 rows vanished.
+
+**Waymo and Wing genuinely have ~1 posting each on the Google board.** Not a filter
+bug. The facet totals reconcile exactly: Google 3,381 + DeepMind 87 + YouTube 145 +
+4 across Waymo/Wing/GFiber/Verily = 3,617. Their real hiring lives elsewhere, so
+discovering separate boards for Waymo and Wing is worth a look.
+
+**Google's 1,180 ceiling was ours.** The board paginates to page 181 of 3,617 and
+returns nothing at 200. Fixed, and the four query-slice rows collapsed into one.
+The board also exposes usable facets: `target_level` (EARLY 417, MID 1,944,
+ADVANCED 1,113), `location=United States` (2,034 of 3,617), and `company` for the
+seven orgs. `GFiber` and `Verily Life Sciences` appear in that facet and are absent
+from the registry, though at ~1 posting each.
+
 ## Open items found during the pass, not fixed
 
-1. **Waymo and Wing return 1 posting each.** The `company=` filter works (both were
-   returning Google's full 1,180-row board before), but a single result suggests the
-   filter value the board expects differs from the plain subsidiary name. Low
-   priority, correctness already improved.
-2. **Intel reports 1 duplicate requisition id**, Moderna 11. Pagination overlap in
-   the workday adapter. Pre-existing for Moderna.
+1. **Intel reports 1 duplicate requisition id**, Moderna 11. Pagination overlap in
+   the workday adapter, and the same class of bug the eightfold adapter had to solve.
+   Worth checking whether workday needs overlapping windows too, since its
+   `paginated` check would be the only thing that ever revealed it.
 3. **Accenture caps at 2,000** postings and reports 95 duplicate requisition ids.
    Pre-existing.
 4. **The Google adapter truncates at 1,180 postings.** Its loop is

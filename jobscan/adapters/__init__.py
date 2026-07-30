@@ -491,8 +491,84 @@ async def recruitee(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> 
     return out
 
 
+# ----------------------------------------------------------------- eightfold
+# Eightfold's public career-site API (they call it PCSX). Centralized: any
+# tenant is reachable at {host}/api/apply/v2/jobs, and app.eightfold.ai with
+# a `domain` param answers identically.
+#
+# PCSX is enabled per tenant. A tenant with it switched off returns
+# 403 {"message": "Not authorized for PCSX"} no matter what parameters you
+# send, so there is nothing to retry or guess. That failure reaches
+# runner._one and gets recorded, which is the honest outcome: those boards
+# need a different route entirely, not a better request.
+EIGHTFOLD_PAGE = 10   # server clamps to 10 however large `num` is
+# Advance by half a page so consecutive windows overlap.
+#
+# The board reorders results between requests, under every sort_by value it
+# accepts (relevance, timestamp, distance, recent) and with none at all.
+# Non-overlapping windows therefore both duplicate and *skip* rows: a full
+# sweep of Netflix's 476 returned 471 unique, losing 5. Measured on that
+# board, step=10 loses 5, step=8 loses 1, step=5 loses 0. Paging past the
+# reported total does not help, because the gaps are scattered rather than
+# at the end.
+#
+# The cost is 96 requests instead of 48. Worth it: a silently dropped
+# requisition is the exact failure this scanner exists to prevent, and it
+# would be invisible without comparing against the board's own count.
+EIGHTFOLD_STEP = 5
+
+
+async def eightfold(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> list[Job]:
+    host = row.get("host") or (f"{row['token']}.eightfold.ai" if row.get("token") else "")
+    if not host:
+        raise ValueError("eightfold rows need host or token")
+    domain = row.get("query", "")
+    out: list[Job] = []
+    seen: set[str] = set()
+    start, total = 0, None
+    while True:
+        r = await c.get(
+            f"https://{host}/api/apply/v2/jobs",
+            params={"start": start, "num": EIGHTFOLD_PAGE, "sort_by": "relevance",
+                    **({"domain": domain} if domain else {})},
+            headers={**HEADERS, "Referer": f"https://{host}/careers"},
+        )
+        r.raise_for_status()
+        d = r.json()
+        if total is None:
+            total = d.get("count") or 0
+        positions = d.get("positions") or []
+        for j in positions:
+            jid = str(j.get("id") or j.get("ats_job_id") or "")
+            if jid in seen:
+                continue        # overlapping windows re-serve rows by design
+            seen.add(jid)
+            # t_create and t_update are epoch seconds. dates.from_epoch_ms
+            # takes either, normalizing anything past 1e12 as milliseconds.
+            posted, src = dates.pick(
+                ("t_create", dates.from_epoch_ms(j.get("t_create"))),
+                ("t_update", dates.from_epoch_ms(j.get("t_update"))),
+            )
+            loc = j.get("location") or ", ".join(j.get("locations") or [])
+            out.append(Job(
+                company=company,
+                title=j.get("name") or j.get("posting_name") or "",
+                url=j.get("canonicalPositionUrl", ""),
+                location=loc,
+                ats="eightfold",
+                posted_at=posted,
+                posted_source=src,
+                raw_id=jid,
+                department=j.get("department") or j.get("business_unit") or "",
+            ))
+        start += EIGHTFOLD_STEP
+        if not positions or start >= total:
+            return out
+
+
 TIER_A = {
     "amazon": amazon,
+    "eightfold": eightfold,
     "google": google,
     "greenhouse": greenhouse,
     "lever": lever,
@@ -504,6 +580,6 @@ TIER_A = {
     "recruitee": recruitee,
 }
 
-TIER_B = {"icims", "successfactors", "taleo", "phenom", "eightfold", "avature", "custom"}
+TIER_B = {"icims", "successfactors", "taleo", "phenom", "avature", "custom"}
 
 KNOWN = set(TIER_A) | TIER_B
