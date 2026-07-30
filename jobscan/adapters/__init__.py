@@ -20,6 +20,12 @@ HEADERS = {
                   "(KHTML, like Gecko) Chrome/124.0 Safari/537.36",
     "Accept": "application/json, text/plain, */*",
     "Accept-Language": "en-US,en;q=0.9",
+    # Named explicitly rather than left to httpx's default, which advertises
+    # zstd and brotli. On httpx 0.28 / CPython 3.14 a zstd response dies with
+    # "cannot use a decompressobj multiple times", and amazon.jobs serves
+    # exactly that. Naming the two encodings every board supports sidesteps
+    # the decoder bug without giving up compression.
+    "Accept-Encoding": "gzip, deflate",
     "Cache-Control": "no-cache",
     "Pragma": "no-cache",
 }
@@ -55,15 +61,16 @@ async def amazon(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> lis
     query = row.get("query", "")
     out, offset, hits = [], 0, None
     while True:
-        try:
-            r = await c.get(url, headers=HEADERS, params={
-                "base_query": query, "offset": offset,
-                "result_limit": AMAZON_PAGE, "sort": "recent",
-            })
-            r.raise_for_status()
-            d = r.json()
-        except Exception:
-            break
+        # No try/except here. Every other adapter lets failures reach
+        # runner._one, which retries once and then records the error. Catching
+        # and breaking turned a hard failure into a successful scan of zero
+        # jobs, so a decoder bug read as "Amazon has no openings" for weeks.
+        r = await c.get(url, headers=HEADERS, params={
+            "base_query": query, "offset": offset,
+            "result_limit": AMAZON_PAGE, "sort": "recent",
+        })
+        r.raise_for_status()
+        d = r.json()
         if d.get("error"):
             raise ValueError(str(d["error"])[:120])
         if hits is None:
@@ -90,7 +97,6 @@ async def amazon(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> lis
         offset += AMAZON_PAGE
         if not jobs or offset >= min(hits, AMAZON_CEILING):
             return out
-    return out
 
 # -------------------------------------------------------------------- google
 # Google self-hosts. There is no REST endpoint. The results page is server
@@ -130,11 +136,18 @@ def _goog_records(html: str) -> list:
 async def google(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> list[Job]:
     base = "https://www.google.com/about/careers/applications/jobs/results"
     query = row.get("query", "")
+    # Alphabet subsidiaries (DeepMind, Waymo, Wing, YouTube) post to the same
+    # board behind a `company` filter. Without it a subsidiary row returns the
+    # entire Google board with every posting relabelled as the subsidiary, so
+    # `token` carries the org name the board expects.
+    org = row.get("token", "")
     out: list[Job] = []
     seen: set[str] = set()
     for page in range(1, 60):  # hard ceiling, the board is finite
         r = await c.get(base,
-                        params={"page": page, **({"q": query} if query else {})},
+                        params={"page": page,
+                                **({"q": query} if query else {}),
+                                **({"company": org} if org else {})},
                         headers={**HEADERS, "Accept": "text/html"})
         r.raise_for_status()
         fresh = 0
@@ -312,7 +325,17 @@ async def workday(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> li
     wd = row.get("wd") or "wd1"
     if not tenant or not site:
         raise ValueError("workday rows need tenant and site columns")
-    base = f"https://{tenant}.{wd}.myworkdayjobs.com"
+    # Two host shapes in the wild. The common one puts the tenant in the
+    # subdomain, {tenant}.wd1.myworkdayjobs.com. Shared-cluster tenants
+    # instead sit behind wd1.myworkdaysite.com with the tenant only in the
+    # path, which is how Wells Fargo serves. An explicit `host` selects the
+    # second; leaving it blank keeps the first, so existing rows are unchanged.
+    if row.get("host"):
+        base = f"https://{row['host']}"
+        public = f"{base}/recruiting/{tenant}/{site}"
+    else:
+        base = f"https://{tenant}.{wd}.myworkdayjobs.com"
+        public = f"{base}/{site}"
     url = f"{base}/wday/cxs/{tenant}/{site}/jobs"
     out, offset, total = [], 0, None
     while True:  # Workday reports `total` only on the first page
@@ -338,7 +361,7 @@ async def workday(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> li
             out.append(Job(
                 company=company,
                 title=j.get("title", ""),
-                url=f"{base}/{site}{path}",
+                url=f"{public}{path}",
                 location=_workday_location(j.get("locationsText", ""), path),
                 ats="workday",
                 posted_at=posted,
