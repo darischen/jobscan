@@ -38,7 +38,11 @@ counts are potential, not confirmed.
 - [ ] **Apple**: `POST /api/role/search` exists; CSRF token acquisition unsolved.
 - [ ] **Meta**: GraphQL `doc_id` rotates.
 - [ ] **Tesla**: listings load client-side, API unidentified.
-- [ ] **IBM**: no board marker in server HTML.
+- [x] **IBM**: done. New `ibm` adapter on `www-api.ibm.com/search/api/v2`
+      (appId `careers`, scope `careers2`, from the search page's inline
+      config). 2,044 postings = board total, 0 duplicate ids, 100% dated,
+      208 early-career hits. Sorted on `_id`: the page's own score sort
+      ties at 0 for every doc and is not a stable order.
 - [ ] **TikTok**: custom portal, API unconfirmed.
 - [ ] **10x Genomics**: moved to Kula (`careers.kula.ai`). Low value at 26 jobs.
 

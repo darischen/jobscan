@@ -6,6 +6,7 @@ and raises on hard failure. The runner catches and records.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 from collections import Counter
@@ -641,11 +642,97 @@ async def eightfold(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> 
         if not positions or start >= total:
             return out
 
+# ----------------------------------------------------------------------- ibm
+# ibm.com/careers/search is an Adobe page whose results widget posts to IBM's
+# site-wide Elasticsearch front end, scoped by the two ids embedded in the
+# page as careerSearchAppId / careerSearchScope. No auth, no token.
+#
+# Measured 2026-10-01: hits.total 2,044, a full sweep returned 2,044 unique
+# jobIds, every one carrying dcdate.
+IBM_URL = "https://www-api.ibm.com/search/api/v2"
+IBM_PAGE = 100       # the API rejects size > 100 with a 400
+# The page's own sort is [_score, pageviews]. With an empty query every score
+# is 0, so that order is a tie broken per shard and is not guaranteed stable
+# across requests, which is the reordering hazard docs/tier-b-triage.md warns
+# about. _id is unique per document, so sorting on it alone is a total order
+# and plain non-overlapping windows are exact.
+IBM_SORT = [{"_id": "asc"}]
+IBM_SOURCE = ["title", "url", "dcdate", "field_keyword_05", "field_keyword_08",
+              "field_keyword_19", "field_text_01"]
+# Elasticsearch refuses from + size past 10,000 by default. The board holds
+# ~2,000, so this only bounds the loop against a runaway total.
+IBM_MAX_PAGES = 100
+IBM_PAUSE = 0.5      # seconds between pages; one reset seen on back-to-back sweeps
+_IBM_CODE = re.compile(r"^(.*?),\s*[A-Z]{2}$")
+
+
+def _ibm_location(city: str | None, country: str | None) -> str:
+    """IBM sends 'PUNE, IN' plus the country name separately.
+
+    The trailing code is ISO 3166 alpha-2, which collides with US state codes:
+    'PUNE, IN' reads as Indiana and 'Toronto, CA' as California. Swapping the
+    code for the country name removes the collision. 'Multiple Cities' carries
+    no code at all, so without the country it would read as a non-answer and
+    pass the US filter for every country.
+    """
+    city = (city or "").strip()
+    country = (country or "").strip()
+    m = _IBM_CODE.match(city)
+    base = m.group(1).strip() if m else city
+    if base.lower() in ("", "no city"):
+        return country or city
+    return f"{base}, {country}" if country else city
+
+
+async def ibm(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> list[Job]:
+    out: list[Job] = []
+    seen: set[str] = set()
+    total: int | None = None
+    for page in range(IBM_MAX_PAGES):
+        if page:
+            await asyncio.sleep(IBM_PAUSE)
+        r = await c.post(IBM_URL, headers={**HEADERS, "Content-Type": "application/json"},
+                         json={"appId": "careers", "scopes": ["careers2"],
+                               "query": {"bool": {"must": []}},
+                               "size": IBM_PAGE, "from": page * IBM_PAGE,
+                               "sort": IBM_SORT, "lang": "zz", "localeSelector": {},
+                               "p": 1, "sm": {"query": "", "lang": "zz"},
+                               "_source": IBM_SOURCE})
+        r.raise_for_status()
+        d = r.json()
+        hits = d.get("hits") or {}
+        if total is None:
+            t = hits.get("total")
+            total = (t.get("value") if isinstance(t, dict) else t) or 0
+        records = hits.get("hits") or []
+        for h in records:
+            s = h.get("_source") or {}
+            jid = str(s.get("field_text_01") or h.get("_id") or "")
+            if not jid or jid in seen:
+                continue
+            seen.add(jid)
+            posted, src = dates.pick(("dcdate", dates.from_iso(s.get("dcdate"))))
+            out.append(Job(
+                company=company,
+                title=s.get("title") or "",
+                url=s.get("url") or f"https://careers.ibm.com/careers/JobDetail?jobId={jid}",
+                location=_ibm_location(s.get("field_keyword_19"), s.get("field_keyword_05")),
+                ats="ibm",
+                posted_at=posted,
+                posted_source=src,
+                raw_id=jid,
+                department=s.get("field_keyword_08") or "",
+            ))
+        if not records or (page + 1) * IBM_PAGE >= total:
+            break
+    return out
+
 
 TIER_A = {
     "amazon": amazon,
     "eightfold": eightfold,
     "google": google,
+    "ibm": ibm,
     "greenhouse": greenhouse,
     "lever": lever,
     "ashby": ashby,
