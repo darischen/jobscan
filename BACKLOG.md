@@ -27,8 +27,16 @@ counts are potential, not confirmed.
 
 - [ ] **successfactors** (7): Microsoft, SAP, TSMC, Hyundai, Paramount Global,
       Supermicro, Altria
-- [ ] **icims** (5): AMD, Atlassian, Charles Schwab, GitHub, Panasonic. The
+- [x] **icims** (5): AMD, Atlassian, Charles Schwab, GitHub, Panasonic. The
       `?format=json` path is dead; needs the newer `careers-home` API.
+      Done 2026-10-01: `icims` adapter on `{host}/api/jobs`. 3 rows promoted,
+      1,776 postings, each equal to the board's totalCount, 0 duplicate ids,
+      100% dated: AMD 1,256 (55 hits), Panasonic 447 (5), GitHub 73 (0).
+      Classic `*.icims.com` portals all return a 405 AWS WAF captcha.
+      Atlassian and Charles Schwab have no careers-home site and moved to
+      `custom`: Atlassian has an unpaged JSON list at
+      `atlassian.com/endpoint/careers/listings` (333 unique ids), Schwab is
+      Radancy TalentBrew at schwabjobs.com (332). Details in their `notes`.
 - [ ] **phenom** (1): Cisco. Registry still says `custom`.
 - [ ] **avature** (1): Intuit
 - [ ] **taleo** (1): UnitedHealth Group

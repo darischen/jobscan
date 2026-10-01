@@ -60,6 +60,9 @@ def load(path: str | Path) -> list[dict[str, Any]]:
         if ats == "eightfold" and not (r.get("host") or r.get("token")):
             problems.append(f"line {i} {r['company']}: eightfold needs host or token")
             continue
+        if ats == "icims" and not r.get("host"):
+            problems.append(f"line {i} {r['company']}: icims needs host")
+            continue
         out.append(r)
     if problems:
         raise RegistryError("registry validation failed:\n  " + "\n  ".join(problems))

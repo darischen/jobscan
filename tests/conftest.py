@@ -48,7 +48,7 @@ def registry_csv(tmp_path: Path) -> Path:
     # Distinct names on purpose: --company does a substring match, so
     # "BrowserCo" would also select an "OtherBrowserCo".
     rows += [{"company": "BrowserCo", "ats": "custom", "host": "browserco.example"},
-             {"company": "PhenomCo", "ats": "icims", "host": "phenomco.example"}]
+             {"company": "PhenomCo", "ats": "custom", "host": "phenomco.example"}]
     return write_registry(tmp_path / "companies.csv", rows)
 
 
