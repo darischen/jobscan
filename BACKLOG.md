@@ -13,12 +13,12 @@ Snapshot 2026-10-01: 116 registry rows, 87 tier A, 29 tier B. Last full
       Re-run `verify.py --company wing`.
 - [x] **`verify.py`: tell throttling apart from dead links.** Done: 404/410 is dead; 5xx, 403, 429, timeouts are unreachable after one retry. `sample_live`
       counts any 5xx or timeout as dead, so a 503 burst reads as broken links.
-- [ ] **Refresh `docs/tier-b-triage.md`.** Open items #3 and #4 (Amazon zero
+- [x] **Refresh `docs/tier-b-triage.md`.** Done: open items restated with status, 2026-10-01 update section added. Open items #3 and #4 (Amazon zero
       jobs, Google 1,180 cap) were fixed in July; add the page-27 Google fix.
 - [ ] **Rebaseline `health.json`** with `verify.py --baseline` on an
       unfiltered network, so ~12 boards stop warning on drift (Anthropic
       402 -> 637, Elastic 223 -> 393, ...).
-- [ ] **Investigate Airtable 41 -> 4.** Real, or a board move like 10x Genomics.
+- [x] **Investigate Airtable 41 -> 4.** Done: real. Greenhouse holds 4 sales roles; `discover.py --auto` finds no other board. Real, or a board move like 10x Genomics.
 
 ## 2. Tier B1: new adapter, one family serves several rows
 

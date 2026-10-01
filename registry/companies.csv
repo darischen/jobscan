@@ -8,7 +8,7 @@ Adobe,ADBE,workday,,adobe,external_experienced,wd5,,https://adobe.wd5.myworkdayj
 AES Corporation,,workday,,aes,AES_US,wd1,,https://aes.wd1.myworkdayjobs.com/AES_US,,confirmed 108 jobs
 Agilent Technologies,,workday,,agilent,Agilent_Student_Careers,wd5,,https://agilent.wd5.myworkdayjobs.com/en-US/Agilent_Student_Careers?locationCountry=bc33aa3152ec42d4995f4791a106ed09,,confirmed 33 jobs
 Airbnb,ABNB,greenhouse,airbnb,,,,,https://careers.airbnb.com/,,auto-discovered from name
-Airtable,AIRTABLE,greenhouse,airtable,,,,,https://job-boards.greenhouse.io/airtable,,probed  confirmed 39 jobs
+Airtable,AIRTABLE,greenhouse,airtable,,,,,https://job-boards.greenhouse.io/airtable,,"probed  confirmed 39 jobs; 4 on 2026-10-01, all sales: real hiring slowdown, discover.py --auto finds no other board"
 Altria,MO,successfactors,,,,,careers.altria.com,https://careers.altria.com/,,
 Amazon,AMZN,amazon,,,,,www.amazon.jobs,https://www.amazon.jobs,,
 Amcor,AMC,workday,,amcor,Amcor_External_Career_Site,wd5,,https://amcor.wd5.myworkdayjobs.com/Amcor_External_Career_Site/,,confirmed 784 jobs

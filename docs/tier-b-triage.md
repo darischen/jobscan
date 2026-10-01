@@ -178,29 +178,60 @@ these were already tier A and nominally working.
 | YouTube | **145** | none found, stays on the Google board |
 | Verily Life Sciences | ~1 | none found, not added |
 
-## Open items found during the pass, not fixed
+## Open items found during the pass
 
-1. **Accenture reports 40 duplicate ids** across 1,997 postings. Unlike Intel and
-   Moderna its `bulletFields` are genuine requisition numbers, so this is true
-   pagination overlap against Workday's platform-level 2,000 result cap. The registry
-   `notes` for that row already prescribe the remedy: add query rows to slice the
-   board, the same technique Google needed before its ceiling was lifted.
-2. **Verily Life Sciences and YouTube** have no standalone board, so they depend on
-   the Google org facet. YouTube is well covered at 145; Verily is not, at ~1.
-3. **Accenture caps at 2,000** postings and reports 95 duplicate requisition ids.
-   Pre-existing.
-4. **The Google adapter truncates at 1,180 postings.** Its loop is
-   `for page in range(1, 60)` at 20 records per page, so 59 x 20 = 1,180 is a hard
-   ceiling rather than a real count. Two of the four query slices (`data engineer`
-   and `software engineer`) report exactly 1,180, meaning both are cut off and the
-   true totals are unknown. The query slicing was added to work around this, and it
-   is not slicing finely enough. Raising the ceiling or adding narrower slices would
-   recover real postings. Not touched by this pass.
-5. **`health.json` baselines were rewritten** by this pass, now holding 91 entries.
-   Keys for multi-row companies changed from `Google` to `Google [software engineer]`
-   and similar, so the four Google query slices hold separate baselines instead of
-   overwriting one another. The Alphabet subsidiaries needed no suffix, since their
-   company names are already distinct.
+Status as of 2026-10-01. Live work is tracked in `BACKLOG.md`.
+
+1. **Open. Accenture sits at Workday's 2,000 result cap** with duplicate
+   requisition ids (40 here, 32 on 2026-10-01). Unlike Intel and Moderna its
+   `bulletFields` are genuine requisition numbers, so this is true pagination
+   overlap against the platform-level cap. Remedy, already in the row's `notes`:
+   add query rows to slice the board, as Google needed before its ceiling was
+   lifted.
+2. **Open. Verily Life Sciences and YouTube** have no standalone board, so they
+   depend on the Google org facet. YouTube is well covered at ~145; Verily is
+   not, at ~1.
+3. **Duplicate of #1**, recorded twice in the first draft (it quoted 95 ids from
+   an earlier run).
+4. **Fixed in `9bd6798`. The Google adapter truncated at 1,180 postings**
+   (`range(1, 60)` at 20 per page). Pagination now follows the board's own
+   total, and the four query-slice rows collapsed into one.
+5. **Done. `health.json` baselines** were rekeyed so multi-row companies get a
+   `[discriminator]` suffix. Since the Google slices collapsed, the remaining
+   multi-row case is gone too: DeepMind lost its greenhouse row on 2026-09-25
+   and is back on the plain `DeepMind` key.
+
+## Update, 2026-09-25 to 2026-10-01
+
+Measured on a fresh clone on a second machine. Two of the findings were the
+network, not the boards, which is worth remembering for any future pass.
+
+**A filtering network looks exactly like dead boards.** On company wifi,
+Roblox, Epic Games and Coinbase (and Steam, Binance) reset during the TLS
+handshake, so `verify.py` reported their job links dead. Only comparing
+against unrelated sites in the same categories exposed it. On an unfiltered
+network all three were 3/3 live. Run health passes off filtered networks.
+
+**A throttled IP looks exactly like dead links.** Checking ~35 Wing links back
+to back got the IP throttled by `job-boards.greenhouse.io`, which then
+answered 503 for every company. `verify.py` now separates dead (404, 410)
+from unreachable (5xx, 403, 429, timeout), with one retry, in `dd276da`.
+
+**Google stopped at page 27 again, for a different reason.** The full board
+returned 539 of 3,414. The board reorders between requests (the eightfold
+behaviour above), page 27 repeated one posting from page 26, and the loop
+read "fewer than 20 new ids" as the last page. Separately the total moved
+from "N jobs matched" to "Showing 1 to 20 of N rows", so the total-driven
+stop had silently died. Both fixed in `4e6d6ef`: 3,412 of 3,414.
+
+**Board moves and drops:**
+
+| Company | Finding | Action |
+|---|---|---|
+| DeepMind | greenhouse `deepmind` returns 404 | row dropped; the Google org-facet row (74) remains |
+| 10x Genomics | redirects to `careers.kula.ai/10xgenomics`; greenhouse 404 | `custom`, tier B |
+| Wing | `absolute_url` points at `wing.com/careers/{id}`, a real 404 | `site=embed` uses the greenhouse embed URL: 6/6 live |
+| Airtable | 41 -> 4 postings, all sales | real; `discover.py --auto` finds no other board |
 
 ## Method, for repeating this
 
