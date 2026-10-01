@@ -34,8 +34,14 @@ counts are potential, not confirmed.
       `cisco` / `wd5` / `Cisco_Careers` directly. 2026-10-01: 1,339 postings
       (Phenom mirror reported 1,307), 170 early-career hits, 100% dated,
       `verify.py` ok.
-- [ ] **avature** (1): Intuit
-- [ ] **taleo** (1): UnitedHealth Group
+- [x] **avature** (1): Intuit. jobs.intuit.com is a Radancy TalentBrew
+      front-end over Avature + "EH"; Avature's own search 404s. New
+      `radancy` adapter. 2026-10-01: 567 of 567, 10 early-career hits,
+      0% dated (the listing carries no date), `verify.py` warn on date only.
+- [x] **taleo** (1): UnitedHealth Group. Also TalentBrew, over Taleo, whose
+      REST search answers `careerSectionUnAvailable`. Same `radancy`
+      adapter. 2026-10-01: 5,547 of 5,547, 72 early-career hits, 0% dated,
+      `verify.py` warn on date only.
 
 ## 3. Tier B2: bespoke JSON, one company each
 
