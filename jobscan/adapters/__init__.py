@@ -642,10 +642,80 @@ async def eightfold(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> 
             return out
 
 
+# --------------------------------------------------------------------- icims
+# iCIMS "careers-home" sites (the Jibe front end iCIMS acquired) expose an
+# open JSON search at https://{host}/api/jobs?page=N&limit=100, returning
+# {"totalCount": n, "jobs": [{"data": {...}}]}. `host` is that career site,
+# NOT the classic *.icims.com portal: every classic portal measured on
+# 2026-10-01 (Atlassian, Schwab, Panasonic) answers 405 with an AWS WAF
+# captcha page, which is why the old ?format=json path looked dead.
+#
+# totalCount spans every language the site publishes; `count` is only the
+# default language. Panasonic reports totalCount 447, count 430, and the 17
+# es-mx postings carry their own req_ids, so they are real postings and the
+# sweep targets totalCount. A full non-overlapping sweep returned exactly
+# totalCount unique req_ids on AMD (1,256), Panasonic (447) and GitHub (73),
+# so unlike eightfold no overlap is needed. The seen-set stays as a cheap
+# guard in case a board ever re-serves a row across pages.
+ICIMS_PAGE = 100   # honored by every tenant measured; 13 requests for AMD
+
+
+async def icims(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> list[Job]:
+    host = row.get("host", "")
+    if not host:
+        raise ValueError("icims rows need host (the careers-home site, not *.icims.com)")
+    out: list[Job] = []
+    seen: set[str] = set()
+    page, total = 1, None
+    while True:
+        r = await c.get(
+            f"https://{host}/api/jobs",
+            params={"page": page, "limit": ICIMS_PAGE},
+            headers={**HEADERS, "Referer": f"https://{host}/careers-home/jobs"},
+        )
+        r.raise_for_status()
+        d = r.json()
+        if total is None:
+            total = d.get("totalCount") or d.get("count") or 0
+        jobs = d.get("jobs") or []
+        for item in jobs:
+            j = item.get("data") or {}
+            rid = str(j.get("req_id") or j.get("slug") or "")
+            if not rid or rid in seen:
+                continue
+            seen.add(rid)
+            posted, src = dates.pick(
+                ("posted_date", dates.from_iso(j.get("posted_date"))),
+                ("create_date", dates.from_iso(j.get("create_date"))),
+            )
+            meta = j.get("meta_data") or {}
+            cats = j.get("categories") or []
+            out.append(Job(
+                company=company,
+                title=j.get("title", ""),
+                url=(meta.get("canonical_url")
+                     or f"https://{host}/jobs/{j.get('slug') or rid}"),
+                # full_location joins every location with "; " when
+                # multipleLocations is set; short_location is the first only.
+                location=(j.get("full_location") or j.get("short_location")
+                          or j.get("location_name") or ""),
+                ats="icims",
+                posted_at=posted,
+                posted_source=src,
+                raw_id=rid,
+                department=(j.get("department")
+                            or (cats[0].get("name", "") if cats else "")),
+            ))
+        page += 1
+        if not jobs or len(seen) >= total or page > 100:
+            return out
+
+
 TIER_A = {
     "amazon": amazon,
     "eightfold": eightfold,
     "google": google,
+    "icims": icims,
     "greenhouse": greenhouse,
     "lever": lever,
     "ashby": ashby,
@@ -656,6 +726,6 @@ TIER_A = {
     "recruitee": recruitee,
 }
 
-TIER_B = {"icims", "successfactors", "taleo", "phenom", "avature", "custom"}
+TIER_B = {"successfactors", "taleo", "phenom", "avature", "custom"}
 
 KNOWN = set(TIER_A) | TIER_B
