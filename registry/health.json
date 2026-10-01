@@ -490,12 +490,6 @@
     "company": "Google",
     "checked": "2026-07-30T06:46:04+00:00"
   },
-  "10x Genomics": {
-    "count": 26,
-    "ats": "greenhouse",
-    "company": "10x Genomics",
-    "checked": "2026-07-30T08:16:09+00:00"
-  },
   "Intel": {
     "count": 640,
     "ats": "workday",
@@ -550,22 +544,10 @@
     "company": "Netflix",
     "checked": "2026-07-30T08:16:09+00:00"
   },
-  "DeepMind [deepmind]": {
-    "count": 10,
-    "ats": "greenhouse",
-    "company": "DeepMind",
-    "checked": "2026-07-30T08:16:09+00:00"
-  },
   "GFiber": {
     "count": 81,
     "ats": "greenhouse",
     "company": "GFiber",
-    "checked": "2026-07-30T08:16:09+00:00"
-  },
-  "DeepMind [DeepMind]": {
-    "count": 86,
-    "ats": "google",
-    "company": "DeepMind",
     "checked": "2026-07-30T08:16:09+00:00"
   }
 }
