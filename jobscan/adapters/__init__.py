@@ -784,9 +784,128 @@ async def apple(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> list
     return out
 
 
+# ---------------------------------------------------------------------- meta
+# metacareers.com is a Relay app. The listing is one persisted GraphQL query,
+# CareersJobSearchResultsV2DataQuery, which returns every posting in a single
+# response (no pagination). Persisted queries are addressed by `doc_id`, and
+# that id changes whenever Meta ships the bundle, so hardcoding it breaks.
+#
+# Both moving parts are rediscovered on every run, over plain HTTP:
+#   - the LSD token sits in the job search page as ["LSD",[],{"token":...}]
+#   - the doc_id sits in one of the ~10 bundles the page loads with a direct
+#     <script src>, as __d("CareersJobSearchResultsV2DataQuery_<x>RelayOperation",
+#     [],(function(...){a.exports="<doc_id>"}). The other ~525 bundles in the
+#     page's resource map are lazy and never needed.
+# The page's own preloaded CPJobSearchQuery carries no jobs, so it is no help.
+#
+# Measured 2026-10-01: 1,061 postings, 1,061 unique, matching the 1,061 job
+# URLs in /jobsearch/sitemap.xml exactly. The query selects id, title,
+# locations, teams and sub_teams only; there is no posting date to read, so
+# posted_at stays None and first_seen is the signal.
+_META_LSD = re.compile(r'\["LSD",\[\],\{"token":"([^"]+)"')
+_META_SCRIPT = re.compile(r'<script[^>]+src="(https://static\.[^"]+\.js[^"]*)"')
+_META_DOC = re.compile(
+    r'__d\("CareersJobSearchResults(V\d+)?DataQuery_[A-Za-z_]*RelayOperation",'
+    r'\[\],\(function\([^)]*\)\{\w+\.exports="(\d+)"')
+META_BASE = "https://www.metacareers.com"
+_META_NAV = {
+    "Accept": "text/html,application/xhtml+xml,*/*;q=0.8",
+    "Sec-Fetch-Mode": "navigate", "Sec-Fetch-Site": "none",
+    "Sec-Fetch-Dest": "document",
+}
+
+
+def _meta_doc_id(js: str) -> tuple[int, str] | None:
+    """Newest results query in a bundle, as (version, doc_id)."""
+    best: tuple[int, str] | None = None
+    for m in _META_DOC.finditer(js):
+        ver = int(m.group(1)[1:]) if m.group(1) else 1
+        if best is None or ver > best[0]:
+            best = (ver, m.group(2))
+    return best
+
+
+async def meta(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> list[Job]:
+    page = await c.get(f"{META_BASE}/jobsearch/", follow_redirects=True,
+                       headers={**HEADERS, **_META_NAV})
+    page.raise_for_status()
+    m = _META_LSD.search(page.text)
+    if not m:
+        raise ValueError("meta: LSD token not found in job search page")
+    lsd = m.group(1)
+
+    found: tuple[int, str] | None = None
+    for src in dict.fromkeys(_META_SCRIPT.findall(page.text)):
+        r = await c.get(src.replace("&amp;", "&"), headers=HEADERS)
+        if r.status_code != 200:
+            continue
+        found = _meta_doc_id(r.text)
+        if found:
+            break
+    if not found:
+        raise ValueError("meta: CareersJobSearchResults doc_id not found in page bundles")
+    version, doc_id = found
+    name = f"CareersJobSearchResults{'V%d' % version if version > 1 else ''}DataQuery"
+
+    search_input = {
+        "q": row.get("query") or None, "divisions": [], "offices": [],
+        "roles": [], "leadership_levels": [], "saved_jobs": [],
+        "saved_searches": [], "sub_teams": [], "teams": [],
+        "is_leadership": False, "is_remote_only": False,
+        "sort_by_new": True, "results_per_page": None,
+    }
+    r = await c.post(
+        f"{META_BASE}/api/graphql/",
+        data={"lsd": lsd, "fb_api_caller_class": "RelayModern",
+              "fb_api_req_friendly_name": name, "server_timestamps": "true",
+              "variables": json.dumps({"search_input": search_input,
+                                       "isLoggedIn": False,
+                                       "viewasUserID": None}),
+              "doc_id": doc_id},
+        headers={**HEADERS, "Accept": "*/*", "X-FB-LSD": lsd,
+                 "X-FB-Friendly-Name": name, "Origin": META_BASE,
+                 "Referer": f"{META_BASE}/jobsearch/",
+                 "Sec-Fetch-Mode": "cors", "Sec-Fetch-Site": "same-origin",
+                 "Sec-Fetch-Dest": "empty"},
+    )
+    r.raise_for_status()
+    body = r.text.strip()
+    if body.startswith("for (;;);"):
+        body = body[len("for (;;);"):]
+    # Relay may stream several JSON objects, one per line; the first holds data.
+    d = json.loads(body.split("\n", 1)[0])
+    data = d.get("data") or {}
+    result = next((v for k, v in data.items()
+                   if k.startswith("job_search_with_featured_jobs") and v), None)
+    if result is None:
+        err = (d.get("errors") or [{}])[0].get("message") or str(d)[:160]
+        raise ValueError(f"meta: no job search result ({err})")
+
+    out: list[Job] = []
+    seen: set[str] = set()
+    # featured_jobs has always been a subset of all_jobs; read both and dedupe
+    # so a featured posting can never be the one that goes missing.
+    for j in (result.get("all_jobs") or []) + (result.get("featured_jobs") or []):
+        jid = str(j.get("id") or "")
+        if not jid or jid in seen:
+            continue
+        seen.add(jid)
+        out.append(Job(
+            company=company,
+            title=(j.get("title") or "").strip(),
+            url=f"{META_BASE}/profile/job_details/{jid}/",
+            location="; ".join(j.get("locations") or []),
+            ats="meta",
+            raw_id=jid,
+            department=", ".join(j.get("teams") or []),
+        ))
+    return out
+
+
 TIER_A = {
     "amazon": amazon,
     "apple": apple,
+    "meta": meta,
     "eightfold": eightfold,
     "google": google,
     "greenhouse": greenhouse,
