@@ -25,8 +25,21 @@ Snapshot 2026-10-01: 116 registry rows, 87 tier A, 29 tier B. Last full
 Highest value per hour. SuccessFactors and iCIMS are untested, so their row
 counts are potential, not confirmed.
 
-- [ ] **successfactors** (7): Microsoft, SAP, TSMC, Hyundai, Paramount Global,
-      Supermicro, Altria
+- [x] **successfactors** (7): Microsoft, SAP, TSMC, Hyundai, Paramount Global,
+      Supermicro, Altria. Done 2026-10-01: 6 of 7 promoted to tier A, plus a
+      second SAP row, 2,865 postings and 94 early-career hits, every row's
+      count equal to the board's own total with zero duplicate ids. Classic
+      CSB listing: SAP 788 (careers.sap.com, 34 hits), Supermicro 1,037 (32),
+      TSMC 325 (15), Hyundai 288 (5), Paramount 279 (8). Unify JSON
+      (`site=unify`): Altria 105 (0). SAP's new SmartRecruiters board
+      `SAPITBusinessSysteme` added as a second row, 43. SAP and Supermicro
+      show no date on their listings, so they verify as warn on `dated` 0%.
+      **Microsoft is not SuccessFactors**: it is an eightfold PCSX site, moved
+      to `custom`. `/api/pcsx/search?domain=microsoft.com` serves count 2,352
+      with session cookies, and the same endpoint also answers for PayPal and
+      Qualcomm, whose "PCSX disabled" diagnosis came from the older
+      `/api/apply/v2/jobs` path. A pcsx mode in the eightfold adapter would
+      cover all three.
 - [x] **icims** (5): AMD, Atlassian, Charles Schwab, GitHub, Panasonic. The
       `?format=json` path is dead; needs the newer `careers-home` API.
       Done 2026-10-01: `icims` adapter on `{host}/api/jobs`. 3 rows promoted,

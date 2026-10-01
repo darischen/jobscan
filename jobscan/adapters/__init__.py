@@ -1327,6 +1327,218 @@ async def meta(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> list[
     return out
 
 
+# ------------------------------------------------------------ successfactors
+# SAP SuccessFactors Recruiting Marketing ("Career Site Builder") sites. One
+# platform, two search front ends, picked per row with `site`:
+#
+#   (blank)  the classic server-rendered listing, GET /search/?q=&startrow=N.
+#            25 rows a page, rendered either as a table (tr.data-row) or as
+#            tiles (li.job-tile) depending on the site's theme, and both carry
+#            the board's own total ("Results 1 - 25 of 289", "Showing 1 to 25
+#            of 281 Jobs"). Measured 2026-10-01 with the default sort, every
+#            board swept to exactly its total with zero duplicates: SAP 790,
+#            Supermicro 1,037, TSMC 325, Hyundai 289, Paramount 279.
+#   unify    the newer "Unify" results page, which renders client side from
+#            POST /services/recruiting/v1/jobs. Needs the page's CSRFToken and
+#            its JSESSIONID cookie, so the page is fetched first. 10 a page.
+#
+# The unify API reorders between requests unless sorted on a unique-enough
+# key. On Altria's 106 postings, a full sweep returned 81 unique ids with
+# sortBy=recent, 77 with relevance, 81 with location, 92 with none, and 106
+# with `date`. Even `date` is not fully stable, presumably because many
+# postings share a start date: three later sweeps of 105 returned 105, 103 and
+# 103. No request shape gives a stable order, so the adapter dedupes on id and
+# sweeps again, under a different sort each time, until it holds the board's
+# own total. The extra passes cost ~11 requests each and only run when short.
+# Imported here rather than at the top so this section stays self-contained.
+import asyncio as _asyncio  # noqa: E402
+import html as _html  # noqa: E402
+from datetime import datetime as _dt  # noqa: E402
+
+SF_CLASSIC_TOTAL = re.compile(
+    r"of\s*<b>\s*([\d,.\s]+?)\s*</b>|of\s+([\d,.]+)\s+jobs", re.I)
+SF_ROW_SPLIT = re.compile(r'<tr class="data-row|<li class="job-tile\b')
+SF_HREF = re.compile(r'(?:href|data-url)="([^"]*?/job/[^"]*?/(\d+)/?)"')
+SF_TITLE = re.compile(r'<a\b[^>]*class="jobTitle-link[^"]*"[^>]*>(.*?)</a>', re.S)
+SF_LOCATION = re.compile(r'class="jobLocation">(.*?)</span>'
+                         r'|-section-location-value">(.*?)</div>', re.S)
+SF_DATE = re.compile(r'class="jobDate">(.*?)<|-section-date-value">(.*?)<', re.S)
+SF_DEPT = re.compile(r'class="jobDepartment">(.*?)</span>', re.S)
+SF_CSRF = re.compile(r'var CSRFToken\s*=\s*"([^"]+)"')
+SF_LOCALE = re.compile(r"currentLocale:\s*'([A-Za-z_]+)'")
+SF_TAG = re.compile(r"<[^>]+>")
+# Safety net. Supermicro, the largest board seen, is 42 pages of 25.
+SF_MAX_PAGES = 400
+# Pause between pages. TSMC's board dropped connections ("Server disconnected
+# without sending a response", then a read timeout) when its 14 pages were
+# fetched back to back on 2026-10-01, and swept cleanly at 0.7s spacing.
+SF_PAGE_DELAY = 0.7
+# Sort orders for successive unify passes, most stable first.
+SF_UNIFY_SORTS = ("date", "date", "", "recent")
+
+
+def _sf_text(fragment: str | None) -> str:
+    return " ".join(_html.unescape(SF_TAG.sub(" ", fragment or "")).split())
+
+
+def _sf_date(value: str | None, us_numeric: bool = False) -> str | None:
+    """'Oct 1, 2026' on classic boards, '5/12/26' (en_US M/D/YY) on unify.
+
+    Numeric dates are only read when the caller knows the locale is en_US.
+    Read blind, 5/12/26 is equally May 12 and December 5.
+    """
+    v = _sf_text(value)
+    if not v:
+        return None
+    fmts = ["%b %d, %Y", "%B %d, %Y", "%d %b %Y", "%d %B %Y", "%Y-%m-%d"]
+    if us_numeric:
+        fmts += ["%m/%d/%y", "%m/%d/%Y"]
+    for fmt in fmts:
+        try:
+            return dates.from_iso(_dt.strptime(v, fmt).date().isoformat())
+        except ValueError:
+            continue
+    return None
+
+
+def _sf_first(rx: re.Pattern[str], block: str) -> str:
+    for m in rx.finditer(block):
+        text = _sf_text(next((g for g in m.groups() if g is not None), ""))
+        if text:
+            return text
+    return ""
+
+
+def _sf_classic_rows(page: str, host: str, company: str) -> list[Job]:
+    out = []
+    for block in SF_ROW_SPLIT.split(page)[1:]:
+        m = SF_HREF.search(block)
+        if not m:
+            continue
+        href, rid = _html.unescape(m.group(1)), m.group(2)
+        posted = dates.pick(("jobDate", _sf_date(_sf_first(SF_DATE, block))))
+        out.append(Job(
+            company=company,
+            title=_sf_first(SF_TITLE, block),
+            url=f"https://{host}{href}" if href.startswith("/") else href,
+            location=_sf_first(SF_LOCATION, block),
+            ats="successfactors",
+            posted_at=posted[0],
+            posted_source=posted[1],
+            raw_id=rid,
+            department=_sf_first(SF_DEPT, block),
+        ))
+    return out
+
+
+async def _sf_classic(c: httpx.AsyncClient, company: str, host: str,
+                      query: str) -> list[Job]:
+    out: list[Job] = []
+    seen: set[str] = set()
+    start, total = 0, None
+    for _ in range(SF_MAX_PAGES):
+        r = await c.get(f"https://{host}/search/",
+                        params={"q": query, "startrow": start},
+                        headers={**HEADERS, "Accept": "text/html"})
+        r.raise_for_status()
+        if total is None:
+            m = SF_CLASSIC_TOTAL.search(r.text)
+            if m:
+                total = int(re.sub(r"\D", "", m.group(1) or m.group(2)))
+            elif "searchresultsunify" in r.text.lower():
+                # A unify site serves this page with no rows in it, which
+                # would otherwise read as an empty board.
+                raise ValueError(f"{host} renders results client side, set site=unify")
+        rows = _sf_classic_rows(r.text, host, company)
+        for j in rows:
+            if j.raw_id not in seen:
+                seen.add(j.raw_id)
+                out.append(j)
+        # startrow is an offset, so advance by what the page actually held
+        # rather than assuming the theme's page size.
+        start += len(rows)
+        if not rows or total is None or start >= total:
+            return out
+        await _asyncio.sleep(SF_PAGE_DELAY)
+    return out
+
+
+async def _sf_unify(c: httpx.AsyncClient, company: str, host: str,
+                    query: str) -> list[Job]:
+    r = await c.get(f"https://{host}/search/", params={"q": query},
+                    headers={**HEADERS, "Accept": "text/html"})
+    r.raise_for_status()
+    m = SF_CSRF.search(r.text)
+    if not m:
+        raise ValueError(f"{host}: no CSRFToken on the search page")
+    token = m.group(1)
+    lm = SF_LOCALE.search(r.text)
+    locale = lm.group(1) if lm else "en_US"
+    out: list[Job] = []
+    seen: set[str] = set()
+    total = None
+    for sort in SF_UNIFY_SORTS:
+        for page in range(SF_MAX_PAGES):
+            r = await c.post(
+                f"https://{host}/services/recruiting/v1/jobs",
+                headers={**HEADERS, "Content-Type": "application/json",
+                         "X-CSRF-Token": token, "Referer": f"https://{host}/search/"},
+                json={"keywords": query, "locale": locale, "location": "",
+                      "pageNumber": page, "sortBy": sort},
+            )
+            r.raise_for_status()
+            d = r.json()
+            if d.get("error"):
+                raise ValueError(str(d["error"])[:120])
+            if total is None:
+                total = d.get("totalJobs") or 0
+            results = d.get("jobSearchResult") or []
+            for item in results:
+                j = item.get("response") or {}
+                rid = str(j.get("id") or "")
+                if not rid or rid in seen:
+                    continue
+                seen.add(rid)
+                out.append(_sf_unify_job(j, company, host, locale, rid))
+            if len(seen) >= total:
+                return out
+            if not results:
+                break   # end of this pass, still short: sweep again
+            await _asyncio.sleep(SF_PAGE_DELAY)
+    return out
+
+
+def _sf_unify_job(j: dict[str, Any], company: str, host: str, locale: str,
+                  rid: str) -> Job:
+    slug = j.get("urlTitle") or j.get("unifiedUrlTitle") or "job"
+    posted, src = dates.pick(
+        ("unifiedStandardStart",
+         _sf_date(j.get("unifiedStandardStart"), us_numeric=locale == "en_US")),
+    )
+    return Job(
+        company=company,
+        title=_sf_text(j.get("unifiedStandardTitle")),
+        url=f"https://{host}/job/{slug}/{rid}-{locale}/",
+        location="; ".join(_sf_text(x) for x in j.get("jobLocationShort") or []
+                           if _sf_text(x)),
+        ats="successfactors",
+        posted_at=posted,
+        posted_source=src,
+        raw_id=rid,
+    )
+
+
+async def successfactors(c: httpx.AsyncClient, company: str,
+                         row: dict[str, Any]) -> list[Job]:
+    host = row.get("host", "")
+    if not host:
+        raise ValueError("successfactors rows need host")
+    query = row.get("query", "")
+    if row.get("site") == "unify":
+        return await _sf_unify(c, company, host, query)
+    return await _sf_classic(c, company, host, query)
+
+
 TIER_A = {
     "amazon": amazon,
     "apple": apple,
@@ -1346,8 +1558,9 @@ TIER_A = {
     "recruitee": recruitee,
     "radancy": radancy,
     "tiktok": tiktok,
+    "successfactors": successfactors,
 }
 
-TIER_B = {"successfactors", "taleo", "phenom", "avature", "custom"}
+TIER_B = {"taleo", "phenom", "avature", "custom"}
 
 KNOWN = set(TIER_A) | TIER_B

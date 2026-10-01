@@ -9,7 +9,7 @@ AES Corporation,,workday,,aes,AES_US,wd1,,https://aes.wd1.myworkdayjobs.com/AES_
 Agilent Technologies,,workday,,agilent,Agilent_Student_Careers,wd5,,https://agilent.wd5.myworkdayjobs.com/en-US/Agilent_Student_Careers?locationCountry=bc33aa3152ec42d4995f4791a106ed09,,confirmed 33 jobs
 Airbnb,ABNB,greenhouse,airbnb,,,,,https://careers.airbnb.com/,,auto-discovered from name
 Airtable,AIRTABLE,greenhouse,airtable,,,,,https://job-boards.greenhouse.io/airtable,,"probed  confirmed 39 jobs; 4 on 2026-10-01, all sales: real hiring slowdown, discover.py --auto finds no other board"
-Altria,MO,successfactors,,,,,careers.altria.com,https://careers.altria.com/,,
+Altria,MO,successfactors,,,unify,,careers.altria.com,https://careers.altria.com/search/,,"confirmed 105 jobs (2026-10-01); SuccessFactors CSB unify site, results come from POST /services/recruiting/v1/jobs, so site=unify"
 Amazon,AMZN,amazon,,,,,www.amazon.jobs,https://www.amazon.jobs,,
 Amcor,AMC,workday,,amcor,Amcor_External_Career_Site,wd5,,https://amcor.wd5.myworkdayjobs.com/Amcor_External_Career_Site/,,confirmed 784 jobs
 AMD,AMD,icims,,,,,careers.amd.com,https://careers.amd.com/careers-home/jobs,,confirmed 1256 jobs via icims careers-home /api/jobs 2026-10-01
@@ -49,7 +49,7 @@ GitHub,,icims,,,,,www.github.careers,https://www.github.careers/careers-home/job
 GitLab,GTLB,greenhouse,gitlab,,,,,https://about.gitlab.com/jobs/,,
 Goldman Sachs,GS,oracle,,,LateralHiring,,hdpc.fa.us2.oraclecloud.com,https://hdpc.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/LateralHiring/jobs,,confirmed 1317 jobs
 Google,GOOGL,google,,,,,,https://www.google.com/about/careers/applications/jobs/results,,full board via total-driven pagination; 4 query slices collapsed once the 1180 page cap was removed
-Hyundai,HMC,successfactors,,,,,careers-americas.hyundai.com,https://careers-americas.hyundai.com/,,
+Hyundai,HMC,successfactors,,,,,careers-americas.hyundai.com,https://careers-americas.hyundai.com/search/,,"confirmed 288 jobs (2026-10-01); classic SuccessFactors CSB listing, one board across HMA/HATCI/HMMA/HMGMA subsites"
 IBM,IBM,ibm,,,,,careers.ibm.com,https://www.ibm.com/careers/search,,"www-api.ibm.com/search/api/v2 appId=careers scope=careers2; 2,044 postings 2026-10-01"
 Illumina,ILMN,workday,,illumina,illumina-careers,wd1,,https://illumina.wd1.myworkdayjobs.com/illumina-careers,,confirmed 126 jobs
 Instacart,CART,greenhouse,instacart,,,,,https://instacart.careers/,,auto-discovered from name
@@ -63,7 +63,7 @@ Lowe's,LOW,workday,,lowes,LWS_External_CS,wd5,,https://lowes.wd5.myworkdayjobs.c
 Lyft,LYFT,greenhouse,lyft,,,,,https://app.careerpuck.com/job-board/lyft/,,
 Meta,META,custom,,,,,www.metacareers.com,https://www.metacareers.com/jobsearch/,,"DISABLED pending owner decision: robots.txt says automated collection is prohibited without written permission. The meta adapter works (1,061 postings 2026-10-01); set ats=meta to enable. 2026-10-01: GraphQL CareersJobSearchResultsV2DataQuery; doc_id and LSD rediscovered each run from the page and its direct script bundles; no posting dates; robots.txt carries a no-automated-collection notice"
 Micron,MU,workday,,micron,External,wd1,,https://micron.wd1.myworkdayjobs.com/External,,
-Microsoft,MSFT,successfactors,,,,,apply.careers.microsoft.com,https://apply.careers.microsoft.com/careers,,
+Microsoft,MSFT,custom,,,,,apply.careers.microsoft.com,https://apply.careers.microsoft.com/careers,,"not SuccessFactors: apply.careers.microsoft.com is an eightfold PCSX site. /api/apply/v2/jobs returns 403 'Not authorized for PCSX', but /api/pcsx/search?domain=microsoft.com&start=N returns 10 positions a page with count=2352 once the /careers page cookies are held (cookieless: 429). Needs a pcsx mode in the eightfold adapter (2026-10-01)"
 Moderna,MRNA,workday,,modernatx,M_tx,wd1,,https://modernatx.wd1.myworkdayjobs.com/M_tx,,confirmed 189 jobs
 Morgan Stanley,MS,custom,,,,,www.morganstanley.com,https://www.morganstanley.com/careers,,tier B
 NBA,,workday,,nba,nbacareers,wd108,,https://careers.nba.com/c/technology-jobs,,confirmed 45 jobs
@@ -75,7 +75,7 @@ OpenAI,,ashby,openai,,,,,https://openai.com/careers/search/,,private
 Oracle,ORCL,oracle,,,jobsearch,,eeho.fa.us2.oraclecloud.com,https://careers.oracle.com/,,confirmed 2316 jobs
 Palantir,PLTR,lever,palantir,,,,,https://www.palantir.com/careers/,,
 Panasonic,PCRFY,icims,,,,,careers.na.panasonic.com,https://careers.na.panasonic.com/careers-home/jobs,,"confirmed 447 jobs via icims careers-home /api/jobs 2026-10-01 (430 en-us + 17 es-mx, distinct req_ids); classic uscareers-napanasonic.icims.com portal is behind an AWS WAF captcha"
-Paramount Global,PARA,successfactors,,,,,careers.paramount.com,https://careers.paramount.com/go/All-Current-Job-Opportunities/8710000/,,tier B
+Paramount Global,PARA,successfactors,,,,,careers.paramount.com,https://careers.paramount.com/search/,,"confirmed 279 jobs (2026-10-01); classic SuccessFactors CSB listing, tile layout"
 PayPal,PYPL,custom,,,,,paypal.eightfold.ai,https://paypal.eightfold.ai/careers,,eightfold tenant with PCSX disabled: /api/apply/v2/jobs returns 403 'Not authorized for PCSX' for any params; needs another route
 Pinterest,PINTEREST,greenhouse,pinterest,,,,,https://www.pinterestcareers.com,,
 Qualcomm,QCOM,custom,,,,,careers.qualcomm.com,https://careers.qualcomm.com/careers,,eightfold tenant with PCSX disabled: /api/apply/v2/jobs returns 403 'Not authorized for PCSX' for any params; needs another route
@@ -85,7 +85,8 @@ Robinhood,,greenhouse,robinhood,,,,,https://job-boards.greenhouse.io/robinhood/,
 Roblox,RBLX,greenhouse,roblox,,,,,https://careers.roblox.com/,,auto-discovered from name
 Salesforce,CRM,workday,,salesforce,External_Career_Site,wd12,,https://salesforce.wd12.myworkdayjobs.com/External_Career_Site,,
 Samsung,,workday,,sec,Samsung_Careers,wd3,,https://sec.wd3.myworkdayjobs.com/Samsung_Careers,,confirmed 606 jobs
-SAP,SAP,successfactors,,,,,career5.successfactors.eu,https://career5.successfactors.eu/careers?company=SAP,,tier B
+SAP,SAP,successfactors,,,,,careers.sap.com,https://careers.sap.com/search/,,"confirmed 788 jobs (2026-10-01); career5.successfactors.eu redirects here. Listing shows no date column, so posted_at is empty. New postings are moving to SmartRecruiters, see the second SAP row"
+SAP,SAP,smartrecruiters,SAPITBusinessSysteme,,,,,https://jobs.sap.com/en/jobs/,,"confirmed 43 jobs (2026-10-01); jobs.sap.com is SAP's new SmartRecruiters board. all posted 2026-09 or later, only 1 title also on careers.sap.com"
 ServiceNow,NOW,smartrecruiters,servicenow,,,,,https://careers.servicenow.com/jobs,,probed  confirmed 444 jobs
 Shopify,SHOP,custom,,,,,www.shopify.com,https://www.shopify.com/careers/,,
 SK Hynix,,greenhouse,skhynixamerica,,,,,https://job-boards.greenhouse.io/skhynixamerica,,
@@ -95,12 +96,12 @@ Sony,SNE,workday,,sonyglobal,SonyGlobalCareers,wd1,,https://www.sonyjobs.com/job
 Spotify,SPOT,lever,spotify,,,,,https://jobs.lever.co/spotify/,,
 Stability AI,,greenhouse,stabilityai,,,,,https://stability.ai/careers,,probed  confirmed 5 jobs
 Stripe,,greenhouse,stripe,,,,,https://stripe.com/jobs/search,,private
-Supermicro,SMCI,successfactors,,,,,jobs.supermicro.com,https://jobs.supermicro.com/,,confirmed via SuccessFactors career portal
+Supermicro,SMCI,successfactors,,,,,jobs.supermicro.com,https://jobs.supermicro.com/search/,,"confirmed 1037 jobs (2026-10-01); classic SuccessFactors CSB listing. No date column, and datePosted on job pages and RSS pubDate are both today's date for every posting, so posted_at is left empty"
 Take-Two Interactive,TTWO,greenhouse,taketwo,,,,,https://job-boards.greenhouse.io/taketwo,,probed  confirmed 33 jobs
 Tesla,TSLA,custom,,,,,www.tesla.com,https://www.tesla.com/careers/search/?site=US,,"tier B - blocked 2026-10-01: Akamai (AkamaiGHost) answers 403 Access Denied to plain HTTP on every tesla.com path incl. / /careers /careers/search /cua-api/apps/careers/state /cua-api/careers/search; needs a browser"
 TikTok,,tiktok,,,,,lifeattiktok.com,https://lifeattiktok.com/search/,,"api.lifeattiktok.com supplier search API; ~4,280 postings 2026-10-01; dates decoded from snowflake ids"
 Tinder,,lever,matchgroup,,,,,https://jobs.lever.co/matchgroup/,,confirmed 83 jobs
-TSMC,TSM,successfactors,,,,,ro.careers.tsmc.com,https://ro.careers.tsmc.com/search/,,
+TSMC,TSM,successfactors,,,,,ro.careers.tsmc.com,https://ro.careers.tsmc.com/search/,,"confirmed 325 jobs (2026-10-01); classic SuccessFactors CSB listing. Overseas board (mostly US and Japan), not TSMC Taiwan hiring. Drops connections when paged back to back, hence SF_PAGE_DELAY"
 Twilio,TWLO,greenhouse,twilio,,,,,https://www.twilio.com/en-us/company/jobs,,
 Uber,UBER,oracle,,,UberCareers,,iaziqy.fa.ocs.oraclecloud.com,https://jobs.uber.com/en/jobs/,,confirmed 609 jobs
 Ubisoft,,smartrecruiters,ubisoft2,,,,,https://careers.smartrecruiters.com/ubisoft2,,confirmed 274 jobs
