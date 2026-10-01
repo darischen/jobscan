@@ -37,7 +37,9 @@ counts are potential, not confirmed.
 
 - [ ] **Apple**: `POST /api/role/search` exists; CSRF token acquisition unsolved.
 - [ ] **Meta**: GraphQL `doc_id` rotates.
-- [ ] **Tesla**: listings load client-side, API unidentified.
+- [ ] **Tesla**: blocked over plain HTTP (2026-10-01). Akamai answers 403
+      Access Denied on every tesla.com path, the homepage included, so the
+      `/cua-api/` endpoints cannot be reached either. Browser tier only.
 - [x] **IBM**: done. New `ibm` adapter on `www-api.ibm.com/search/api/v2`
       (appId `careers`, scope `careers2`, from the search page's inline
       config). 2,044 postings = board total, 0 duplicate ids, 100% dated,
