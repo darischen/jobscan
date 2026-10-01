@@ -45,7 +45,12 @@ counts are potential, not confirmed.
       config). 2,044 postings = board total, 0 duplicate ids, 100% dated,
       208 early-career hits. Sorted on `_id`: the page's own score sort
       ties at 0 for every doc and is not a stable order.
-- [ ] **TikTok**: custom portal, API unconfirmed.
+- [x] **TikTok**: done. New `tiktok` adapter on
+      `api.lifeattiktok.com/api/v1/public/supplier/search/job/posts` (needs
+      `website-path: tiktok` and `origin` headers, else 400). 4,278 = board
+      count, 0 duplicate ids, 519 early-career hits. No date field: dates are
+      decoded from the snowflake id (creation time, `posted_source=id_epoch`).
+      Overlapping windows: one plain sweep lost 2 of 4,281 to live churn.
 - [ ] **10x Genomics**: moved to Kula (`careers.kula.ai`). Low value at 26 jobs.
 
 ## 4. Tier C: browser required, or board not identified

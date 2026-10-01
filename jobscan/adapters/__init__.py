@@ -727,6 +727,106 @@ async def ibm(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> list[J
             break
     return out
 
+# -------------------------------------------------------------------- tiktok
+# lifeattiktok.com (careers.tiktok.com redirects there) is a Next.js site
+# over ByteDance's ATS. Its client posts to a public "supplier" search API.
+# No auth, but the API answers 400 "invalid request" unless the request
+# carries the headers the site's fetch wrapper adds: website-path and origin.
+#
+# Measured 2026-10-01, count ~4,281. The order itself is stable: five
+# instrumented non-overlapping sweeps (100 and 500 per page) each served every
+# id exactly once, the same set every time. But one adapter run with plain
+# windows returned 4,279 unique against a count of 4,281 before and after.
+# The board is live (newest first), so a posting withdrawn mid-sweep from a
+# page already read shifts every later row up one, and the row that crosses
+# the window boundary is never served. Overlapping windows plus dedupe absorb
+# shifts up to PAGE - STEP rows, the same remedy eightfold needed for a
+# different cause.
+#
+# The API accepts up to 500 per page. Every record carries its full
+# description, so a 400 page is ~1.6 MB; large windows keep the sweep short,
+# which also shrinks the churn exposure. ~22 requests for the full board.
+TIKTOK_URL = "https://api.lifeattiktok.com/api/v1/public/supplier/search/job/posts"
+TIKTOK_HEADERS = {**HEADERS, "Content-Type": "application/json",
+                  "accept-language": "en-US", "origin": "https://lifeattiktok.com",
+                  "website-path": "tiktok"}
+TIKTOK_PAGE = 400
+TIKTOK_STEP = 200        # half a page: consecutive windows overlap by 200 rows
+TIKTOK_MAX_PAGES = 200   # loop bound only; the board stops at its own count
+TIKTOK_PAUSE = 0.5       # seconds between pages
+
+
+def _tiktok_location(city: dict | None) -> str:
+    """city_info nests city -> state -> country through `parent`."""
+    names: list[str] = []
+    while isinstance(city, dict):
+        n = (city.get("en_name") or city.get("i18n_name") or city.get("name") or "").strip()
+        if n and n not in names:        # Singapore is its own city and country
+            names.append(n)
+        city = city.get("parent")
+    return ", ".join(names)
+
+
+def _tiktok_created(jid: str) -> str | None:
+    """The board sends no date. Its ids are ByteDance snowflakes whose high 32
+    bits are the record's creation time in epoch seconds.
+
+    Checked against the live board: the newest id decodes to the scan day, none
+    decode to the future, and the board's own newest-first order matches the
+    decoded times. It is the requisition's creation, not its last repost, so
+    some evergreen "2026 Start" postings decode to 2023. Kept under its own
+    posted_source so that difference stays visible.
+    """
+    try:
+        return dates.from_epoch_ms(int(jid) >> 32)
+    except (TypeError, ValueError):
+        return None
+
+
+async def tiktok(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> list[Job]:
+    out: list[Job] = []
+    seen: set[str] = set()
+    total = 0
+    for page in range(TIKTOK_MAX_PAGES):
+        offset = page * TIKTOK_STEP
+        if page:
+            await asyncio.sleep(TIKTOK_PAUSE)
+        r = await c.post(TIKTOK_URL, headers=TIKTOK_HEADERS, json={
+            "recruitment_id_list": [], "job_category_id_list": [],
+            "subject_id_list": [], "location_code_list": [],
+            "keyword": row.get("query", ""),
+            "limit": TIKTOK_PAGE, "offset": offset,
+        })
+        r.raise_for_status()
+        d = r.json()
+        if d.get("code") not in (0, None):
+            raise ValueError(f"tiktok code {d.get('code')}: {str(d.get('message'))[:80]}")
+        data = d.get("data") or {}
+        # The largest count seen, so a board that grows mid-sweep is read
+        # to its new end rather than the end it had on the first page.
+        total = max(total, data.get("count") or 0)
+        posts = data.get("job_post_list") or []
+        for j in posts:
+            jid = str(j.get("id") or "")
+            if not jid or jid in seen:
+                continue        # overlapping windows re-serve rows by design
+            seen.add(jid)
+            posted, src = dates.pick(("id_epoch", _tiktok_created(jid)))
+            out.append(Job(
+                company=company,
+                title=(j.get("title") or "").strip(),
+                url=f"https://lifeattiktok.com/search/{jid}",
+                location=_tiktok_location(j.get("city_info")),
+                ats="tiktok",
+                posted_at=posted,
+                posted_source=src,
+                raw_id=jid,
+                department=(j.get("job_category") or {}).get("en_name") or "",
+            ))
+        if not posts or offset + TIKTOK_PAGE >= total:
+            break
+    return out
+
 
 TIER_A = {
     "amazon": amazon,
@@ -741,6 +841,7 @@ TIER_A = {
     "oracle": oracle,
     "workable": workable,
     "recruitee": recruitee,
+    "tiktok": tiktok,
 }
 
 TIER_B = {"icims", "successfactors", "taleo", "phenom", "avature", "custom"}
