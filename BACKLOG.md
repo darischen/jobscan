@@ -3,124 +3,119 @@
 Worked top to bottom. Tick an item in the commit that completes it, with the
 measured result next to it, so this file stays a record rather than a wish list.
 
-Snapshot 2026-10-01: 116 registry rows, 87 tier A, 29 tier B. Last full
-`verify.py`: 73 ok, 14 warn, 0 fail.
+Snapshot 2026-10-01, end of day: 117 registry rows, **105 tier A, 12 tier B**
+(was 116 / 87 / 29 that morning). Last full `verify.py`: 84 ok, 21 warn,
+0 fail, baselines rewritten. The 18 newly promoted rows carry 23,369
+postings and 1,813 early-career hits; the Google fix recovered ~2,700 more.
 
 ## 1. Follow-ups from the 2026-10-01 health pass
 
-- [x] **Confirm Wing embed links.** Done 2026-10-01: 6/6 live. `site=embed` shipped in `4e6d6ef` but the
-      live check was cut short when job-boards.greenhouse.io throttled the IP.
-      Re-run `verify.py --company wing`.
-- [x] **`verify.py`: tell throttling apart from dead links.** Done: 404/410 is dead; 5xx, 403, 429, timeouts are unreachable after one retry. `sample_live`
-      counts any 5xx or timeout as dead, so a 503 burst reads as broken links.
-- [x] **Refresh `docs/tier-b-triage.md`.** Done: open items restated with status, 2026-10-01 update section added. Open items #3 and #4 (Amazon zero
-      jobs, Google 1,180 cap) were fixed in July; add the page-27 Google fix.
-- [ ] **Rebaseline `health.json`** with `verify.py --baseline` on an
-      unfiltered network, so ~12 boards stop warning on drift (Anthropic
-      402 -> 637, Elastic 223 -> 393, ...).
-- [x] **Investigate Airtable 41 -> 4.** Done: real. Greenhouse holds 4 sales roles; `discover.py --auto` finds no other board. Real, or a board move like 10x Genomics.
+- [x] **Confirm Wing embed links.** `site=embed` (`4e6d6ef`): 6/6 live.
+- [x] **`verify.py`: tell throttling apart from dead links.** 404/410 is dead;
+      5xx, 403, 429 and timeouts are "unreachable" after one retry (`dd276da`).
+      Paid off the same day: on the filtered network Roblox, Epic Games and
+      Coinbase now read unreachable, not dead.
+- [x] **Refresh `docs/tier-b-triage.md`.** Open items restated with status;
+      dated section for 2026-09-25 to 2026-10-01 (`1c3aeed`).
+- [x] **Rebaseline `health.json`.** 105 boards, 2026-10-01. Counts come from
+      the board APIs, which the filtered network does not block, so the
+      baselines are valid even though link sampling ran on that network.
+- [x] **Investigate Airtable 41 -> 4.** Real: greenhouse holds 4 sales roles
+      and `discover.py --auto` finds no other board.
 
 ## 2. Tier B1: new adapter, one family serves several rows
 
-Highest value per hour. SuccessFactors and iCIMS are untested, so their row
-counts are potential, not confirmed.
-
-- [x] **successfactors** (7): Microsoft, SAP, TSMC, Hyundai, Paramount Global,
-      Supermicro, Altria. Done 2026-10-01: 6 of 7 promoted to tier A, plus a
-      second SAP row, 2,865 postings and 94 early-career hits, every row's
-      count equal to the board's own total with zero duplicate ids. Classic
-      CSB listing: SAP 788 (careers.sap.com, 34 hits), Supermicro 1,037 (32),
-      TSMC 325 (15), Hyundai 288 (5), Paramount 279 (8). Unify JSON
-      (`site=unify`): Altria 105 (0). SAP's new SmartRecruiters board
-      `SAPITBusinessSysteme` added as a second row, 43. SAP and Supermicro
-      show no date on their listings, so they verify as warn on `dated` 0%.
-      **Microsoft is not SuccessFactors**: it is an eightfold PCSX site, moved
-      to `custom`. `/api/pcsx/search?domain=microsoft.com` serves count 2,352
-      with session cookies, and the same endpoint also answers for PayPal and
-      Qualcomm, whose "PCSX disabled" diagnosis came from the older
-      `/api/apply/v2/jobs` path. A pcsx mode in the eightfold adapter would
-      cover all three.
-- [x] **icims** (5): AMD, Atlassian, Charles Schwab, GitHub, Panasonic. The
-      `?format=json` path is dead; needs the newer `careers-home` API.
-      Done 2026-10-01: `icims` adapter on `{host}/api/jobs`. 3 rows promoted,
-      1,776 postings, each equal to the board's totalCount, 0 duplicate ids,
-      100% dated: AMD 1,256 (55 hits), Panasonic 447 (5), GitHub 73 (0).
-      Classic `*.icims.com` portals all return a 405 AWS WAF captcha.
-      Atlassian and Charles Schwab have no careers-home site and moved to
-      `custom`: Atlassian has an unpaged JSON list at
-      `atlassian.com/endpoint/careers/listings` (333 unique ids), Schwab is
-      Radancy TalentBrew at schwabjobs.com, since promoted on the `radancy`
-      adapter (346 of 346). Atlassian details in its `notes`.
-- [x] **phenom** (1): Cisco. No adapter needed: the Phenom site's own
-      `applyUrl`s point at Workday, so the row now reads `workday`
-      `cisco` / `wd5` / `Cisco_Careers` directly. 2026-10-01: 1,339 postings
-      (Phenom mirror reported 1,307), 170 early-career hits, 100% dated,
-      `verify.py` ok.
-- [x] **avature** (1): Intuit. jobs.intuit.com is a Radancy TalentBrew
-      front-end over Avature + "EH"; Avature's own search 404s. New
-      `radancy` adapter. 2026-10-01: 567 of 567, 10 early-career hits,
-      0% dated (the listing carries no date), `verify.py` warn on date only.
-- [x] **taleo** (1): UnitedHealth Group. Also TalentBrew, over Taleo, whose
-      REST search answers `careerSectionUnAvailable`. Same `radancy`
-      adapter. 2026-10-01: 5,547 of 5,547, 72 early-career hits, 0% dated,
-      `verify.py` warn on date only.
+- [x] **successfactors** (7): new `successfactors` adapter, classic listing
+      plus `site=unify` JSON. 6 promoted, every count equal to the board's
+      total: SAP 788, Supermicro 1,037, TSMC 325, Hyundai 288, Paramount 279,
+      Altria 105 (Altria reorders, so it re-sweeps to the total). SAP gained a
+      second row for its new SmartRecruiters board (43). **Microsoft is not
+      SuccessFactors**: it is an eightfold PCSX site, see section 4.
+- [x] **icims** (5): new `icims` adapter on the careers-home `/api/jobs`.
+      AMD 1,256, Panasonic 447, GitHub 73, each equal to `totalCount`.
+      Classic `*.icims.com` portals all return a 405 AWS WAF captcha. Charles
+      Schwab turned out to be Radancy TalentBrew and went tier A on that
+      adapter (346 of 346). Atlassian stays tier B, see section 4.
+- [x] **phenom** (1): Cisco needed no adapter. The Phenom site mirrors the
+      Workday board it applies through, so the row reads Workday directly:
+      1,339 postings (the mirror showed 1,307).
+- [x] **avature** (1): Intuit lists publicly only on Radancy TalentBrew. New
+      `radancy` adapter: 567 of 567.
+- [x] **taleo** (1): UnitedHealth Group, also TalentBrew (Taleo's search
+      answers `careerSectionUnAvailable`): 5,547 of 5,547.
 
 ## 3. Tier B2: bespoke JSON, one company each
 
-- [x] **Apple**: promoted to tier A (`apple` adapter). No token needed: the
-      search pages are server rendered with hydration JSON and `totalRecords`;
-      `/api/role/search` and `/api/csrfToken` now 404. 4,523 US postings,
-      653 early-career hits, 99% dated, verify ok.
-- [x] **Meta**: promoted to tier A (`meta` adapter). `doc_id` and LSD are
-      read from the job search page and its direct script bundles on every
-      run. 1,061 postings (= the 1,061 URLs in `/jobsearch/sitemap.xml`),
-      145 early-career hits. verify warns: 0% dated (the query has no date;
-      `datePosted` exists only on each 500 KB job page) and 0/5 live,
-      because Meta answers 400 to any request without browser
-      `Sec-Fetch-*` headers; the same URLs return 200 with them.
-      `robots.txt` carries a notice prohibiting automated collection
-      without written permission, so the row is merged DISABLED (`custom`);
-      set `ats=meta` to enable. Owner decision pending.
-- [ ] **Tesla**: blocked over plain HTTP (2026-10-01). Akamai answers 403
-      Access Denied on every tesla.com path, the homepage included, so the
-      `/cua-api/` endpoints cannot be reached either. Browser tier only.
-- [x] **IBM**: done. New `ibm` adapter on `www-api.ibm.com/search/api/v2`
-      (appId `careers`, scope `careers2`, from the search page's inline
-      config). 2,044 postings = board total, 0 duplicate ids, 100% dated,
-      208 early-career hits. Sorted on `_id`: the page's own score sort
-      ties at 0 for every doc and is not a stable order.
-- [x] **TikTok**: done. New `tiktok` adapter on
-      `api.lifeattiktok.com/api/v1/public/supplier/search/job/posts` (needs
-      `website-path: tiktok` and `origin` headers, else 400). 4,278 = board
-      count, 0 duplicate ids, 519 early-career hits. No date field: dates are
-      decoded from the snowflake id (creation time, `posted_source=id_epoch`).
-      Overlapping windows: one plain sweep lost 2 of 4,281 to live churn.
-- [x] **10x Genomics**: done. New `kula` adapter on Kula's unauthenticated
-      `/api/internal/ats_job_posts` (token = account name). 34 = meta.count =
-      job links on the page, 0 duplicates, 100% dated, 0 early-career hits.
+- [x] **Apple**: new `apple` adapter. No token needed: search pages are
+      server rendered with the results as JSON plus `totalRecords`. 4,523 US
+      postings, 653 early-career hits.
+- [x] **Meta**: new `meta` adapter, merged **disabled**. Reads the rotating
+      `doc_id` from the page's bundles each run; 1,061 postings, matching the
+      job sitemap exactly. `robots.txt` says automated collection is
+      prohibited without written permission, so the row is `custom` until
+      the owner decides. Set `ats=meta` to enable.
+- [ ] **Tesla**: blocked. Akamai answers 403 to plain HTTP on every
+      tesla.com path, homepage included. Browser tier only (section 6).
+- [x] **IBM**: new `ibm` adapter on `www-api.ibm.com/search/api/v2`. 2,044 =
+      board total. Maps "PUNE, IN" / "Toronto, CA" country codes to country
+      names, which would otherwise pass the US filter as Indiana / California.
+- [x] **TikTok**: new `tiktok` adapter. 4,278 = board count, overlapping
+      windows against live churn.
+- [x] **10x Genomics**: new `kula` adapter. 34 = board count.
 
-## 4. Tier C: browser required, or board not identified
+## 4. Remaining tier B (12 rows)
 
-Broadcom, DigitalOcean, Electronic Arts, Fidelity, Morgan Stanley, Shopify,
-PayPal, Qualcomm.
-
-- Shopify and DigitalOcean deserve one manual look first: `discover.py` only
-  probes name-derived slugs and misses a board token unrelated to the name.
-- PayPal and Qualcomm are eightfold tenants with the public PCSX API disabled
-  (`403 Not authorized for PCSX`). No request shape fixes that.
+- [ ] **eightfold PCSX mode: Microsoft, PayPal, Qualcomm.** Highest value
+      left. `/api/pcsx/search?domain=<d>&start=N` answers for all three once
+      the `/careers` page has set session cookies (429 without them);
+      Microsoft reports 2,352. The July "PCSX disabled" diagnosis came from
+      the older `/api/apply/v2/jobs` path only.
+- [ ] **Atlassian**: unpaged JSON at `atlassian.com/endpoint/careers/listings`
+      (351 entries, 333 unique ids, no total field). Small dedicated adapter.
+- [ ] **Shopify, DigitalOcean**: one manual look before assuming a browser;
+      `discover.py` misses board tokens unrelated to the company name.
+- [ ] **Broadcom, Electronic Arts, Fidelity, Morgan Stanley**: unidentified.
+- [ ] **Tesla**: browser only (see section 3).
+- [ ] **Meta**: owner decision (see section 3).
 
 ## 5. Data quality
 
-- **Accenture** sits at Workday's 2,000-result cap with ~32 duplicate ids.
-  Slice the board with query rows, as Google once was.
-- **JPMorgan Chase**: 1 duplicate id at 5,100 postings. Check for a cap.
-- **Verily Life Sciences**: ~1 posting via the Google org facet, no
-  standalone board found.
+- [ ] **NVIDIA at Workday's 2,000 cap**: the board reports `total=2000`, so
+      the real count is unknown. Slice with query rows, as for Accenture.
+- [ ] **Accenture at Workday's 2,000 cap**: 1,998 with 19 duplicate ids.
+- [ ] **Salesforce**: 14 duplicate ids at 1,510 (new on 2026-10-01). Check
+      whether Workday reorders between pages here, as eightfold does.
+- [ ] **Workday (the company)**: 2 duplicate ids at 373.
+- [ ] **JPMorgan Chase**: 5,100 postings, suspiciously round. Check for a cap.
+- [ ] **SAP cross-board overlap**: one title appears on both careers.sap.com
+      and the SmartRecruiters board. Confirm whether it is one posting twice.
+- [ ] **Verily Life Sciences**: ~1 posting via the Google org facet, no
+      standalone board found.
+- [ ] **TikTok dates are inferred**: decoded from the id's creation time
+      (`posted_source=id_epoch`), so evergreen postings show 2023. Owner
+      sign-off, or drop the date.
 
-## 6. Unbuilt features
+## 6. Tooling
+
+- [ ] **`verify.py` paginated check**: the docstring promises "count matches
+      the board's own total" but nothing implements it. It would have caught
+      Google's page-27 stop automatically. Needs each adapter to report the
+      board's total.
+- [ ] **`verify.py` dated check**: Radancy, SAP, Supermicro and Meta boards
+      publish no dates, so they warn on every run. Allow a per-adapter or
+      per-row "undated" expectation.
+- [ ] **`verify.py --baseline` never prunes**: keys for removed or rekeyed rows
+      (e.g. the old single-row `SAP`) stay forever. Drop keys with no row on
+      a full, unfiltered run.
+- [ ] **`discover.py` markers**: recognise Radancy TalentBrew (`tbcdn`,
+      `talentbrew`), careers-home iCIMS and Kula; it still sends taleo /
+      avature / phenom sites to tier B though all three proved to be
+      fronts for other boards.
+
+## 7. Unbuilt features
 
 - **`tier_b.py`**: documented in the README, never written. Playwright runner
-  for boards that need a browser.
+  for boards that need a browser (Tesla, and whatever section 4 leaves).
 - **Application tracking**: `applied_at` and `starred` exist in the `jobs`
   schema and are unused.
 - **MCP extensions**: HTTP transport, Docker, progress streaming, registry writes.
