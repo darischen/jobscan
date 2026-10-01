@@ -22,7 +22,7 @@ Bloomberg,,workday,,bloomberg,Bloombergindustrygroup_External_Career_Site,wd1,,h
 Box,BOX,greenhouse,boxinc,,,,,https://careers.box.com/en/jobs,,probed  confirmed 117 jobs
 Broadcom,AVGO,custom,,,,,www.broadcom.com,https://www.broadcom.com/company/careers,,tier B - unidentified
 Charles Schwab,SCHW,custom,,,,,www.schwabjobs.com,https://www.schwabjobs.com/search-jobs,,"iCIMS ATS fronted by Radancy TalentBrew; no careers-home site (/api/jobs serves the HTML home page). 2026-10-01: classic career-ind-schwab.icims.com returns 405 AWS WAF captcha; schwabjobs.com/search-jobs/results returns JSON wrapping an HTML fragment with data-total-results=332 and ids in data-job-id. Needs a talentbrew adapter"
-Cisco,CSCO,custom,,,,,jobs.cisco.com,https://jobs.cisco.com/jobs/SearchJobs,,tier B
+Cisco,CSCO,workday,,cisco,Cisco_Careers,wd5,,https://careers.cisco.com/global/en/search-results,,"Phenom front-end (careers.cisco.com, refNum CISCISGLOBAL) over Workday; read Workday directly. 2026-10-01: Workday 1336, Phenom mirror 1307"
 Cloudflare,NET,greenhouse,cloudflare,,,,,https://www.cloudflare.com/careers/jobs/,,
 Cohere,,ashby,cohere,,,,,https://jobs.ashbyhq.com/cohere,,confirmed 138 jobs
 Coinbase,COIN,greenhouse,coinbase,,,,,https://job-boards.greenhouse.io/coinbase,,
@@ -54,7 +54,7 @@ IBM,IBM,custom,,,,,careers.ibm.com,https://www.ibm.com/careers/search,,tier B
 Illumina,ILMN,workday,,illumina,illumina-careers,wd1,,https://illumina.wd1.myworkdayjobs.com/illumina-careers,,confirmed 126 jobs
 Instacart,CART,greenhouse,instacart,,,,,https://instacart.careers/,,auto-discovered from name
 Intel,INTC,workday,,intel,External,wd1,,https://intel.wd1.myworkdayjobs.com/External/,,"confirmed 639 jobs; was mis-filed eightfold, old URL 404'd"
-Intuit,INTU,avature,,,,,jobs.intuit.com,https://jobs.intuit.com/search-jobs,,tier B
+Intuit,INTU,radancy,,,,,jobs.intuit.com,https://jobs.intuit.com/search-jobs,,"Radancy TalentBrew over Avature + EH; Avature search 404s and its feed is empty. 2026-10-01: 567 of 567, undated"
 IXL,,greenhouse,ixllearning,,,,,https://www.ixl.com/company/careers,,confirmed 118 jobs
 JPMorgan Chase,JPM,oracle,,,CX_1001,,jpmc.fa.oraclecloud.com,https://jpmc.fa.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1001/jobs,,confirmed 5100 jobs
 LG Electronics,,greenhouse,lgelectronics,,,,,,,confirmed 98 jobs
@@ -104,7 +104,7 @@ TSMC,TSM,successfactors,,,,,ro.careers.tsmc.com,https://ro.careers.tsmc.com/sear
 Twilio,TWLO,greenhouse,twilio,,,,,https://www.twilio.com/en-us/company/jobs,,
 Uber,UBER,oracle,,,UberCareers,,iaziqy.fa.ocs.oraclecloud.com,https://jobs.uber.com/en/jobs/,,confirmed 609 jobs
 Ubisoft,,smartrecruiters,ubisoft2,,,,,https://careers.smartrecruiters.com/ubisoft2,,confirmed 274 jobs
-UnitedHealth Group,UNH,taleo,,,,,careers.unitedhealthgroup.com,https://careers.unitedhealthgroup.com/search-jobs,,tier B
+UnitedHealth Group,UNH,radancy,,,,,careers.unitedhealthgroup.com,https://careers.unitedhealthgroup.com/search-jobs,,"Radancy TalentBrew over Taleo; Taleo REST search answers careerSectionUnAvailable. 2026-10-01: 5547 of 5547, undated"
 Upwork,,greenhouse,upwork,,,,,https://job-boards.greenhouse.io/upwork,,probed  confirmed 10 jobs
 Vercel,,greenhouse,vercel,,,,,https://vercel.com/careers/,,confirmed 79 jobs
 Warner Bros Discovery,WBD,workday,,warnerbros,global,wd5,,https://warnerbros.wd5.myworkdayjobs.com/en-US/global/,,confirmed 445 jobs

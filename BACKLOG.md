@@ -37,9 +37,19 @@ counts are potential, not confirmed.
       `custom`: Atlassian has an unpaged JSON list at
       `atlassian.com/endpoint/careers/listings` (333 unique ids), Schwab is
       Radancy TalentBrew at schwabjobs.com (332). Details in their `notes`.
-- [ ] **phenom** (1): Cisco. Registry still says `custom`.
-- [ ] **avature** (1): Intuit
-- [ ] **taleo** (1): UnitedHealth Group
+- [x] **phenom** (1): Cisco. No adapter needed: the Phenom site's own
+      `applyUrl`s point at Workday, so the row now reads `workday`
+      `cisco` / `wd5` / `Cisco_Careers` directly. 2026-10-01: 1,339 postings
+      (Phenom mirror reported 1,307), 170 early-career hits, 100% dated,
+      `verify.py` ok.
+- [x] **avature** (1): Intuit. jobs.intuit.com is a Radancy TalentBrew
+      front-end over Avature + "EH"; Avature's own search 404s. New
+      `radancy` adapter. 2026-10-01: 567 of 567, 10 early-career hits,
+      0% dated (the listing carries no date), `verify.py` warn on date only.
+- [x] **taleo** (1): UnitedHealth Group. Also TalentBrew, over Taleo, whose
+      REST search answers `careerSectionUnAvailable`. Same `radancy`
+      adapter. 2026-10-01: 5,547 of 5,547, 72 early-career hits, 0% dated,
+      `verify.py` warn on date only.
 
 ## 3. Tier B2: bespoke JSON, one company each
 

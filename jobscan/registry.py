@@ -62,6 +62,8 @@ def load(path: str | Path) -> list[dict[str, Any]]:
             continue
         if ats == "icims" and not r.get("host"):
             problems.append(f"line {i} {r['company']}: icims needs host")
+        if ats == "radancy" and not r.get("host"):
+            problems.append(f"line {i} {r['company']}: radancy needs host")
             continue
         out.append(r)
     if problems:

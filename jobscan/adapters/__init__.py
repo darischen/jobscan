@@ -711,6 +711,111 @@ async def icims(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> list
             return out
 
 
+# ------------------------------------------------------------------- radancy
+# Radancy TalentBrew career sites (jobs.intuit.com, careers.unitedhealthgroup
+# .com). TalentBrew is a search front-end that sits over the real ATS, and for
+# these tenants it is the only public listing: Intuit's Avature portal 404s on
+# search and serves an empty feed, and UHG's Taleo REST search answers
+# careerSectionUnAvailable. It is also the more complete view, since Intuit's
+# listing merges two ATSs (Avature 530 + "EH" 37 on 2026-10-01).
+#
+# GET /search-jobs/results is the page's own AJAX call. It returns JSON whose
+# `results` is an HTML fragment of <li> cards plus a section carrying
+# data-total-results and data-total-pages. Blank SearchFiltersModuleName drops
+# the facet HTML, which on UHG is ~8.7 MB per request against ~0.4 MB of
+# results. RecordsPerPage=500 is honored.
+#
+# The cards carry no date in any sort order and the sitemap's lastmod is the
+# generation time for every job, so posted_at stays None. The detail page's
+# JSON-LD has a real datePosted, but that is one request per posting (5,547
+# for UHG), which is not worth it while the store's first_seen covers the gap.
+from html import unescape as _unescape  # noqa: E402  (kept in this section)
+
+RADANCY_PAGE = 500
+_RADANCY_LI = re.compile(r"<li\b[^>]*>.*?</li>", re.S)
+_RADANCY_HREF = re.compile(r'href="(/job/[^"]*?/(\d+)/(\d+))"')
+_RADANCY_TOTAL = re.compile(r'data-total-results="(\d+)"')
+_RADANCY_PAGES = re.compile(r'data-total-pages="(\d+)"')
+
+
+def _radancy_text(pattern: str, block: str) -> str:
+    m = re.search(pattern, block, re.S)
+    if not m:
+        return ""
+    return _unescape(re.sub(r"<[^>]+>", "", m.group(1))).strip()
+
+
+def _radancy_cards(fragment: str) -> list[dict[str, str]]:
+    cards = []
+    for li in _RADANCY_LI.findall(fragment):
+        href = _RADANCY_HREF.search(li)
+        if not href:
+            continue    # pagination and other non-job list items
+        cards.append({
+            "path": href.group(1),
+            "id": href.group(3),
+            "title": _radancy_text(r"<h2[^>]*>(.*?)</h2>", li),
+            "location": _radancy_text(r'class="job-location[^"]*"[^>]*>(.*?)</span>', li),
+            # UHG names the hiring brand on some cards (LHC Group, ...).
+            # Intuit's data-category is not usable: on 2026-10-01 it read
+            # "Data" for 500 of 567 cards, software developers included.
+            "department": _radancy_text(
+                r'class="job-info job-entity"[^>]*>(.*?)</span>', li),
+        })
+    return cards
+
+
+async def radancy(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> list[Job]:
+    host = row.get("host", "")
+    if not host:
+        raise ValueError("radancy rows need host")
+    out: list[Job] = []
+    seen: set[str] = set()
+    page, pages = 1, None
+    while True:
+        r = await c.get(
+            f"https://{host}/search-jobs/results",
+            params={
+                "ActiveFacetID": "0", "CurrentPage": page,
+                "RecordsPerPage": RADANCY_PAGE, "Distance": "50",
+                "RadiusUnitType": "0", "Keywords": row.get("query", ""),
+                "Location": "", "ShowRadius": "False", "IsPagination": "True",
+                "CustomFacetName": "", "FacetTerm": "", "FacetType": "0",
+                "SearchResultsModuleName": "Search Results",
+                "SearchFiltersModuleName": "",
+                "SortCriteria": "0", "SortDirection": "0", "SearchType": "5",
+                "PostalCode": "", "ResultsType": "0",
+            },
+            headers={**HEADERS, "X-Requested-With": "XMLHttpRequest",
+                     "Referer": f"https://{host}/search-jobs"},
+        )
+        r.raise_for_status()
+        fragment = r.json().get("results") or ""
+        if pages is None:
+            m = _RADANCY_PAGES.search(fragment)
+            total = _RADANCY_TOTAL.search(fragment)
+            # Prefer the reported page count; derive it from the total if not.
+            pages = (int(m.group(1)) if m else
+                     -(-int(total.group(1)) // RADANCY_PAGE) if total else 0)
+        cards = _radancy_cards(fragment)
+        for card in cards:
+            if card["id"] in seen:
+                continue
+            seen.add(card["id"])
+            out.append(Job(
+                company=company,
+                title=card["title"],
+                url=f"https://{host}{card['path']}",
+                location=card["location"],
+                ats="radancy",
+                raw_id=card["id"],
+                department=card["department"],
+            ))
+        page += 1
+        if not cards or page > pages or page > 100:
+            return out
+
+
 TIER_A = {
     "amazon": amazon,
     "eightfold": eightfold,
@@ -724,6 +829,7 @@ TIER_A = {
     "oracle": oracle,
     "workable": workable,
     "recruitee": recruitee,
+    "radancy": radancy,
 }
 
 TIER_B = {"successfactors", "taleo", "phenom", "avature", "custom"}
