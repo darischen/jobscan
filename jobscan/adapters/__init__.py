@@ -6,6 +6,7 @@ and raises on hard failure. The runner catches and records.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 from collections import Counter
@@ -641,6 +642,256 @@ async def eightfold(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> 
         if not positions or start >= total:
             return out
 
+# ----------------------------------------------------------------------- ibm
+# ibm.com/careers/search is an Adobe page whose results widget posts to IBM's
+# site-wide Elasticsearch front end, scoped by the two ids embedded in the
+# page as careerSearchAppId / careerSearchScope. No auth, no token.
+#
+# Measured 2026-10-01: hits.total 2,044, a full sweep returned 2,044 unique
+# jobIds, every one carrying dcdate.
+IBM_URL = "https://www-api.ibm.com/search/api/v2"
+IBM_PAGE = 100       # the API rejects size > 100 with a 400
+# The page's own sort is [_score, pageviews]. With an empty query every score
+# is 0, so that order is a tie broken per shard and is not guaranteed stable
+# across requests, which is the reordering hazard docs/tier-b-triage.md warns
+# about. _id is unique per document, so sorting on it alone is a total order
+# and plain non-overlapping windows are exact.
+IBM_SORT = [{"_id": "asc"}]
+IBM_SOURCE = ["title", "url", "dcdate", "field_keyword_05", "field_keyword_08",
+              "field_keyword_19", "field_text_01"]
+# Elasticsearch refuses from + size past 10,000 by default. The board holds
+# ~2,000, so this only bounds the loop against a runaway total.
+IBM_MAX_PAGES = 100
+IBM_PAUSE = 0.5      # seconds between pages; one reset seen on back-to-back sweeps
+_IBM_CODE = re.compile(r"^(.*?),\s*[A-Z]{2}$")
+
+
+def _ibm_location(city: str | None, country: str | None) -> str:
+    """IBM sends 'PUNE, IN' plus the country name separately.
+
+    The trailing code is ISO 3166 alpha-2, which collides with US state codes:
+    'PUNE, IN' reads as Indiana and 'Toronto, CA' as California. Swapping the
+    code for the country name removes the collision. 'Multiple Cities' carries
+    no code at all, so without the country it would read as a non-answer and
+    pass the US filter for every country.
+    """
+    city = (city or "").strip()
+    country = (country or "").strip()
+    m = _IBM_CODE.match(city)
+    base = m.group(1).strip() if m else city
+    if base.lower() in ("", "no city"):
+        return country or city
+    return f"{base}, {country}" if country else city
+
+
+async def ibm(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> list[Job]:
+    out: list[Job] = []
+    seen: set[str] = set()
+    total: int | None = None
+    for page in range(IBM_MAX_PAGES):
+        if page:
+            await asyncio.sleep(IBM_PAUSE)
+        r = await c.post(IBM_URL, headers={**HEADERS, "Content-Type": "application/json"},
+                         json={"appId": "careers", "scopes": ["careers2"],
+                               "query": {"bool": {"must": []}},
+                               "size": IBM_PAGE, "from": page * IBM_PAGE,
+                               "sort": IBM_SORT, "lang": "zz", "localeSelector": {},
+                               "p": 1, "sm": {"query": "", "lang": "zz"},
+                               "_source": IBM_SOURCE})
+        r.raise_for_status()
+        d = r.json()
+        hits = d.get("hits") or {}
+        if total is None:
+            t = hits.get("total")
+            total = (t.get("value") if isinstance(t, dict) else t) or 0
+        records = hits.get("hits") or []
+        for h in records:
+            s = h.get("_source") or {}
+            jid = str(s.get("field_text_01") or h.get("_id") or "")
+            if not jid or jid in seen:
+                continue
+            seen.add(jid)
+            posted, src = dates.pick(("dcdate", dates.from_iso(s.get("dcdate"))))
+            out.append(Job(
+                company=company,
+                title=s.get("title") or "",
+                url=s.get("url") or f"https://careers.ibm.com/careers/JobDetail?jobId={jid}",
+                location=_ibm_location(s.get("field_keyword_19"), s.get("field_keyword_05")),
+                ats="ibm",
+                posted_at=posted,
+                posted_source=src,
+                raw_id=jid,
+                department=s.get("field_keyword_08") or "",
+            ))
+        if not records or (page + 1) * IBM_PAGE >= total:
+            break
+    return out
+
+# -------------------------------------------------------------------- tiktok
+# lifeattiktok.com (careers.tiktok.com redirects there) is a Next.js site
+# over ByteDance's ATS. Its client posts to a public "supplier" search API.
+# No auth, but the API answers 400 "invalid request" unless the request
+# carries the headers the site's fetch wrapper adds: website-path and origin.
+#
+# Measured 2026-10-01, count ~4,281. The order itself is stable: five
+# instrumented non-overlapping sweeps (100 and 500 per page) each served every
+# id exactly once, the same set every time. But one adapter run with plain
+# windows returned 4,279 unique against a count of 4,281 before and after.
+# The board is live (newest first), so a posting withdrawn mid-sweep from a
+# page already read shifts every later row up one, and the row that crosses
+# the window boundary is never served. Overlapping windows plus dedupe absorb
+# shifts up to PAGE - STEP rows, the same remedy eightfold needed for a
+# different cause.
+#
+# The API accepts up to 500 per page. Every record carries its full
+# description, so a 400 page is ~1.6 MB; large windows keep the sweep short,
+# which also shrinks the churn exposure. ~22 requests for the full board.
+TIKTOK_URL = "https://api.lifeattiktok.com/api/v1/public/supplier/search/job/posts"
+TIKTOK_HEADERS = {**HEADERS, "Content-Type": "application/json",
+                  "accept-language": "en-US", "origin": "https://lifeattiktok.com",
+                  "website-path": "tiktok"}
+TIKTOK_PAGE = 400
+TIKTOK_STEP = 200        # half a page: consecutive windows overlap by 200 rows
+TIKTOK_MAX_PAGES = 200   # loop bound only; the board stops at its own count
+TIKTOK_PAUSE = 0.5       # seconds between pages
+
+
+def _tiktok_location(city: dict | None) -> str:
+    """city_info nests city -> state -> country through `parent`."""
+    names: list[str] = []
+    while isinstance(city, dict):
+        n = (city.get("en_name") or city.get("i18n_name") or city.get("name") or "").strip()
+        if n and n not in names:        # Singapore is its own city and country
+            names.append(n)
+        city = city.get("parent")
+    return ", ".join(names)
+
+
+def _tiktok_created(jid: str) -> str | None:
+    """The board sends no date. Its ids are ByteDance snowflakes whose high 32
+    bits are the record's creation time in epoch seconds.
+
+    Checked against the live board: the newest id decodes to the scan day, none
+    decode to the future, and the board's own newest-first order matches the
+    decoded times. It is the requisition's creation, not its last repost, so
+    some evergreen "2026 Start" postings decode to 2023. Kept under its own
+    posted_source so that difference stays visible.
+    """
+    try:
+        return dates.from_epoch_ms(int(jid) >> 32)
+    except (TypeError, ValueError):
+        return None
+
+
+async def tiktok(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> list[Job]:
+    out: list[Job] = []
+    seen: set[str] = set()
+    total = 0
+    for page in range(TIKTOK_MAX_PAGES):
+        offset = page * TIKTOK_STEP
+        if page:
+            await asyncio.sleep(TIKTOK_PAUSE)
+        r = await c.post(TIKTOK_URL, headers=TIKTOK_HEADERS, json={
+            "recruitment_id_list": [], "job_category_id_list": [],
+            "subject_id_list": [], "location_code_list": [],
+            "keyword": row.get("query", ""),
+            "limit": TIKTOK_PAGE, "offset": offset,
+        })
+        r.raise_for_status()
+        d = r.json()
+        if d.get("code") not in (0, None):
+            raise ValueError(f"tiktok code {d.get('code')}: {str(d.get('message'))[:80]}")
+        data = d.get("data") or {}
+        # The largest count seen, so a board that grows mid-sweep is read
+        # to its new end rather than the end it had on the first page.
+        total = max(total, data.get("count") or 0)
+        posts = data.get("job_post_list") or []
+        for j in posts:
+            jid = str(j.get("id") or "")
+            if not jid or jid in seen:
+                continue        # overlapping windows re-serve rows by design
+            seen.add(jid)
+            posted, src = dates.pick(("id_epoch", _tiktok_created(jid)))
+            out.append(Job(
+                company=company,
+                title=(j.get("title") or "").strip(),
+                url=f"https://lifeattiktok.com/search/{jid}",
+                location=_tiktok_location(j.get("city_info")),
+                ats="tiktok",
+                posted_at=posted,
+                posted_source=src,
+                raw_id=jid,
+                department=(j.get("job_category") or {}).get("en_name") or "",
+            ))
+        if not posts or offset + TIKTOK_PAGE >= total:
+            break
+    return out
+
+# ---------------------------------------------------------------------- kula
+# Kula hosts boards at careers.kula.ai/{account}. The page is server rendered,
+# and its own client reads the same postings from a JSON endpoint under
+# /api/internal/ with no auth. `type` selects the handler server-side; 99 per
+# page is the value the site itself sends. meta carries count and pages.
+#
+# Measured 2026-10-01 on 10x Genomics: meta.count 34, 34 unique ids, every
+# one with launch_at, matching the 34 job links in the rendered page.
+KULA_PAGE = 99
+KULA_MAX_PAGES = 100     # loop bound only; meta.pages is the real stop
+
+
+def _kula_location(offices: list | None) -> str:
+    """Each office carries a ready 'City, State, Country' string."""
+    names: list[str] = []
+    for o in offices or []:
+        if not isinstance(o, dict):
+            continue
+        n = (o.get("location") or ", ".join(
+            x for x in (o.get("city"), o.get("state"), o.get("country")) if x) or "").strip()
+        if n and n not in names:
+            names.append(n)
+    return "; ".join(names)
+
+
+async def kula(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> list[Job]:
+    account = row.get("token", "")
+    if not account:
+        raise ValueError("kula rows need token (the careers.kula.ai account name)")
+    host = row.get("host") or "careers.kula.ai"
+    out: list[Job] = []
+    seen: set[str] = set()
+    for page in range(1, KULA_MAX_PAGES):
+        r = await c.get(f"https://{host}/api/internal/ats_job_posts", headers=HEADERS,
+                        params={"accountName": account, "page": page,
+                                "type": "ats_job_post.index", "items": KULA_PAGE})
+        r.raise_for_status()
+        d = r.json()
+        if d.get("errors"):
+            raise ValueError(f"kula: {str(d['errors'])[:120]}")
+        posts = d.get("data") or []
+        for j in posts:
+            jid = str(j.get("id") or "")
+            if not jid or jid in seen:
+                continue
+            seen.add(jid)
+            ats_job = j.get("ats_job") or {}
+            posted, src = dates.pick(("launch_at", dates.from_iso(j.get("launch_at"))))
+            out.append(Job(
+                company=company,
+                title=(j.get("title") or "").strip(),
+                # the bare id redirects to the canonical id-slug URL
+                url=f"https://{host}/{account}/{jid}",
+                location=_kula_location(ats_job.get("offices")),
+                ats="kula",
+                posted_at=posted,
+                posted_source=src,
+                raw_id=jid,
+                department=(ats_job.get("ats_department") or {}).get("name") or "",
+            ))
+        pages = (d.get("meta") or {}).get("pages") or 0
+        if not posts or page >= pages:
+            break
+    return out
+
 
 # --------------------------------------------------------------------- icims
 # iCIMS "careers-home" sites (the Jibe front end iCIMS acquired) expose an
@@ -1083,6 +1334,8 @@ TIER_A = {
     "eightfold": eightfold,
     "google": google,
     "icims": icims,
+    "ibm": ibm,
+    "kula": kula,
     "greenhouse": greenhouse,
     "lever": lever,
     "ashby": ashby,
@@ -1092,6 +1345,7 @@ TIER_A = {
     "workable": workable,
     "recruitee": recruitee,
     "radancy": radancy,
+    "tiktok": tiktok,
 }
 
 TIER_B = {"successfactors", "taleo", "phenom", "avature", "custom"}

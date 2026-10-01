@@ -1,5 +1,5 @@
 company,ticker,ats,token,tenant,site,wd,host,careers_url,query,notes
-10x Genomics,,custom,,,,,careers.kula.ai,https://careers.kula.ai/10xgenomics,,tier B - moved from greenhouse to Kula (careers.kula.ai) by 2026-09; greenhouse 10xgenomics returns 404; no Kula adapter
+10x Genomics,,kula,10xgenomics,,,,careers.kula.ai,https://careers.kula.ai/10xgenomics,,"moved from greenhouse to Kula by 2026-09; kula adapter on /api/internal/ats_job_posts, 34 postings 2026-10-01"
 3M,MMM,workday,,3m,Search,wd1,,https://3m.wd1.myworkdayjobs.com/en-US/Search,,
 AbbVie,,smartrecruiters,abbvie,,,,,https://careers.smartrecruiters.com/abbvie,,confirmed 1653 jobs
 Accenture,ACN,workday,,accenture,AccentureCareers,wd103,,https://www.accenture.com/us-en/careers/jobsearch,,"board is at the Workday 2000 total cap, add query rows to slice it"
@@ -50,7 +50,7 @@ GitLab,GTLB,greenhouse,gitlab,,,,,https://about.gitlab.com/jobs/,,
 Goldman Sachs,GS,oracle,,,LateralHiring,,hdpc.fa.us2.oraclecloud.com,https://hdpc.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/LateralHiring/jobs,,confirmed 1317 jobs
 Google,GOOGL,google,,,,,,https://www.google.com/about/careers/applications/jobs/results,,full board via total-driven pagination; 4 query slices collapsed once the 1180 page cap was removed
 Hyundai,HMC,successfactors,,,,,careers-americas.hyundai.com,https://careers-americas.hyundai.com/,,
-IBM,IBM,custom,,,,,careers.ibm.com,https://www.ibm.com/careers/search,,tier B
+IBM,IBM,ibm,,,,,careers.ibm.com,https://www.ibm.com/careers/search,,"www-api.ibm.com/search/api/v2 appId=careers scope=careers2; 2,044 postings 2026-10-01"
 Illumina,ILMN,workday,,illumina,illumina-careers,wd1,,https://illumina.wd1.myworkdayjobs.com/illumina-careers,,confirmed 126 jobs
 Instacart,CART,greenhouse,instacart,,,,,https://instacart.careers/,,auto-discovered from name
 Intel,INTC,workday,,intel,External,wd1,,https://intel.wd1.myworkdayjobs.com/External/,,"confirmed 639 jobs; was mis-filed eightfold, old URL 404'd"
@@ -97,8 +97,8 @@ Stability AI,,greenhouse,stabilityai,,,,,https://stability.ai/careers,,probed  c
 Stripe,,greenhouse,stripe,,,,,https://stripe.com/jobs/search,,private
 Supermicro,SMCI,successfactors,,,,,jobs.supermicro.com,https://jobs.supermicro.com/,,confirmed via SuccessFactors career portal
 Take-Two Interactive,TTWO,greenhouse,taketwo,,,,,https://job-boards.greenhouse.io/taketwo,,probed  confirmed 33 jobs
-Tesla,TSLA,custom,,,,,www.tesla.com,https://www.tesla.com/careers/search/?site=US,,
-TikTok,,custom,,,,,lifeattiktok.com,https://lifeattiktok.com/search/,,
+Tesla,TSLA,custom,,,,,www.tesla.com,https://www.tesla.com/careers/search/?site=US,,"tier B - blocked 2026-10-01: Akamai (AkamaiGHost) answers 403 Access Denied to plain HTTP on every tesla.com path incl. / /careers /careers/search /cua-api/apps/careers/state /cua-api/careers/search; needs a browser"
+TikTok,,tiktok,,,,,lifeattiktok.com,https://lifeattiktok.com/search/,,"api.lifeattiktok.com supplier search API; ~4,280 postings 2026-10-01; dates decoded from snowflake ids"
 Tinder,,lever,matchgroup,,,,,https://jobs.lever.co/matchgroup/,,confirmed 83 jobs
 TSMC,TSM,successfactors,,,,,ro.careers.tsmc.com,https://ro.careers.tsmc.com/search/,,
 Twilio,TWLO,greenhouse,twilio,,,,,https://www.twilio.com/en-us/company/jobs,,

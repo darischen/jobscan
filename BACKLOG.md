@@ -66,11 +66,25 @@ counts are potential, not confirmed.
       because Meta answers 400 to any request without browser
       `Sec-Fetch-*` headers; the same URLs return 200 with them.
       `robots.txt` carries a notice prohibiting automated collection
-      without written permission; decide whether to keep the row enabled.
-- [ ] **Tesla**: listings load client-side, API unidentified.
-- [ ] **IBM**: no board marker in server HTML.
-- [ ] **TikTok**: custom portal, API unconfirmed.
-- [ ] **10x Genomics**: moved to Kula (`careers.kula.ai`). Low value at 26 jobs.
+      without written permission, so the row is merged DISABLED (`custom`);
+      set `ats=meta` to enable. Owner decision pending.
+- [ ] **Tesla**: blocked over plain HTTP (2026-10-01). Akamai answers 403
+      Access Denied on every tesla.com path, the homepage included, so the
+      `/cua-api/` endpoints cannot be reached either. Browser tier only.
+- [x] **IBM**: done. New `ibm` adapter on `www-api.ibm.com/search/api/v2`
+      (appId `careers`, scope `careers2`, from the search page's inline
+      config). 2,044 postings = board total, 0 duplicate ids, 100% dated,
+      208 early-career hits. Sorted on `_id`: the page's own score sort
+      ties at 0 for every doc and is not a stable order.
+- [x] **TikTok**: done. New `tiktok` adapter on
+      `api.lifeattiktok.com/api/v1/public/supplier/search/job/posts` (needs
+      `website-path: tiktok` and `origin` headers, else 400). 4,278 = board
+      count, 0 duplicate ids, 519 early-career hits. No date field: dates are
+      decoded from the snowflake id (creation time, `posted_source=id_epoch`).
+      Overlapping windows: one plain sweep lost 2 of 4,281 to live churn.
+- [x] **10x Genomics**: done. New `kula` adapter on Kula's unauthenticated
+      `/api/internal/ats_job_posts` (token = account name). 34 = meta.count =
+      job links on the page, 0 duplicates, 100% dated, 0 early-career hits.
 
 ## 4. Tier C: browser required, or board not identified
 
