@@ -16,7 +16,7 @@ AMD,AMD,icims,,,,,careers.amd.com,https://careers.amd.com/careers-home/jobs,,con
 Ameren,,workday,,ameren,External,wd1,,https://ameren.wd1.myworkdayjobs.com/External?_gl=1*1e7z7pv*_gcl_au*MTg2MDc4NDY1NC4xNzM5MjE5ODk2LjMzMzYwMTE5MS4xNzQ0ODM2OTAxLjE3NDQ4MzY5MDE.*_ga*ODU0ODk2NDA1LjE3MzkyMTk4OTY.*_ga_8C6F435CY5*MTc0NjAzNTMyMy4xLjEuMTc0NjA0NTY3OS41OC4wLjA.,,confirmed 69 jobs
 American Express,AXP,oracle,,,CX_1,,egug.fa.us2.oraclecloud.com,https://careers.americanexpress.com/en/sites/CX_1/jobs,,confirmed 354 jobs
 Anthropic,,greenhouse,anthropic,,,,,https://www.anthropic.com/careers,,private
-Apple,AAPL,custom,,,,,jobs.apple.com,https://jobs.apple.com/en-us/search,,tier B - json search endpoint exists
+Apple,AAPL,apple,,,,,jobs.apple.com,https://jobs.apple.com/en-us/search,,2026-10-01: search pages are server rendered (hydration JSON + totalRecords); US slug by default via site; old /api/role/search and /api/csrfToken now 404
 Atlassian,TEAM,custom,,,,,www.atlassian.com,https://www.atlassian.com/company/careers/all-jobs,,"iCIMS ATS with no careers-home site; classic *.icims.com portals return 405 AWS WAF captcha. 2026-10-01: GET www.atlassian.com/endpoint/careers/listings returns one unpaged JSON list, 351 entries = 333 unique iCIMS ids posted across 6 portals, no total field. Needs its own small adapter that dedupes on id"
 Bloomberg,,workday,,bloomberg,Bloombergindustrygroup_External_Career_Site,wd1,,https://bloomberg.wd1.myworkdayjobs.com/Bloombergindustrygroup_External_Career_Site/,,confirmed 57 jobs
 Box,BOX,greenhouse,boxinc,,,,,https://careers.box.com/en/jobs,,probed  confirmed 117 jobs
@@ -61,7 +61,7 @@ LG Electronics,,greenhouse,lgelectronics,,,,,,,confirmed 98 jobs
 Linear,,ashby,linear,,,,,https://linear.app/careers,,private
 Lowe's,LOW,workday,,lowes,LWS_External_CS,wd5,,https://lowes.wd5.myworkdayjobs.com/,,
 Lyft,LYFT,greenhouse,lyft,,,,,https://app.careerpuck.com/job-board/lyft/,,
-Meta,META,custom,,,,,www.metacareers.com,https://www.metacareers.com/jobsearch/,,
+Meta,META,custom,,,,,www.metacareers.com,https://www.metacareers.com/jobsearch/,,"DISABLED pending owner decision: robots.txt says automated collection is prohibited without written permission. The meta adapter works (1,061 postings 2026-10-01); set ats=meta to enable. 2026-10-01: GraphQL CareersJobSearchResultsV2DataQuery; doc_id and LSD rediscovered each run from the page and its direct script bundles; no posting dates; robots.txt carries a no-automated-collection notice"
 Micron,MU,workday,,micron,External,wd1,,https://micron.wd1.myworkdayjobs.com/External,,
 Microsoft,MSFT,successfactors,,,,,apply.careers.microsoft.com,https://apply.careers.microsoft.com/careers,,
 Moderna,MRNA,workday,,modernatx,M_tx,wd1,,https://modernatx.wd1.myworkdayjobs.com/M_tx,,confirmed 189 jobs

@@ -54,8 +54,19 @@ counts are potential, not confirmed.
 
 ## 3. Tier B2: bespoke JSON, one company each
 
-- [ ] **Apple**: `POST /api/role/search` exists; CSRF token acquisition unsolved.
-- [ ] **Meta**: GraphQL `doc_id` rotates.
+- [x] **Apple**: promoted to tier A (`apple` adapter). No token needed: the
+      search pages are server rendered with hydration JSON and `totalRecords`;
+      `/api/role/search` and `/api/csrfToken` now 404. 4,523 US postings,
+      653 early-career hits, 99% dated, verify ok.
+- [x] **Meta**: promoted to tier A (`meta` adapter). `doc_id` and LSD are
+      read from the job search page and its direct script bundles on every
+      run. 1,061 postings (= the 1,061 URLs in `/jobsearch/sitemap.xml`),
+      145 early-career hits. verify warns: 0% dated (the query has no date;
+      `datePosted` exists only on each 500 KB job page) and 0/5 live,
+      because Meta answers 400 to any request without browser
+      `Sec-Fetch-*` headers; the same URLs return 200 with them.
+      `robots.txt` carries a notice prohibiting automated collection
+      without written permission; decide whether to keep the row enabled.
 - [ ] **Tesla**: listings load client-side, API unidentified.
 - [ ] **IBM**: no board marker in server HTML.
 - [ ] **TikTok**: custom portal, API unconfirmed.
