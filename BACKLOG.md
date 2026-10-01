@@ -36,7 +36,8 @@ counts are potential, not confirmed.
       Atlassian and Charles Schwab have no careers-home site and moved to
       `custom`: Atlassian has an unpaged JSON list at
       `atlassian.com/endpoint/careers/listings` (333 unique ids), Schwab is
-      Radancy TalentBrew at schwabjobs.com (332). Details in their `notes`.
+      Radancy TalentBrew at schwabjobs.com, since promoted on the `radancy`
+      adapter (346 of 346). Atlassian details in its `notes`.
 - [x] **phenom** (1): Cisco. No adapter needed: the Phenom site's own
       `applyUrl`s point at Workday, so the row now reads `workday`
       `cisco` / `wd5` / `Cisco_Careers` directly. 2026-10-01: 1,339 postings

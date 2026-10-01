@@ -21,7 +21,7 @@ Atlassian,TEAM,custom,,,,,www.atlassian.com,https://www.atlassian.com/company/ca
 Bloomberg,,workday,,bloomberg,Bloombergindustrygroup_External_Career_Site,wd1,,https://bloomberg.wd1.myworkdayjobs.com/Bloombergindustrygroup_External_Career_Site/,,confirmed 57 jobs
 Box,BOX,greenhouse,boxinc,,,,,https://careers.box.com/en/jobs,,probed  confirmed 117 jobs
 Broadcom,AVGO,custom,,,,,www.broadcom.com,https://www.broadcom.com/company/careers,,tier B - unidentified
-Charles Schwab,SCHW,custom,,,,,www.schwabjobs.com,https://www.schwabjobs.com/search-jobs,,"iCIMS ATS fronted by Radancy TalentBrew; no careers-home site (/api/jobs serves the HTML home page). 2026-10-01: classic career-ind-schwab.icims.com returns 405 AWS WAF captcha; schwabjobs.com/search-jobs/results returns JSON wrapping an HTML fragment with data-total-results=332 and ids in data-job-id. Needs a talentbrew adapter"
+Charles Schwab,SCHW,radancy,,,,,www.schwabjobs.com,https://www.schwabjobs.com/search-jobs,,"Radancy TalentBrew over iCIMS; the classic *.icims.com portal returns a 405 AWS WAF captcha and there is no careers-home site. 2026-10-01: radancy adapter, 346 of 346"
 Cisco,CSCO,workday,,cisco,Cisco_Careers,wd5,,https://careers.cisco.com/global/en/search-results,,"Phenom front-end (careers.cisco.com, refNum CISCISGLOBAL) over Workday; read Workday directly. 2026-10-01: Workday 1336, Phenom mirror 1307"
 Cloudflare,NET,greenhouse,cloudflare,,,,,https://www.cloudflare.com/careers/jobs/,,
 Cohere,,ashby,cohere,,,,,https://jobs.ashbyhq.com/cohere,,confirmed 138 jobs
