@@ -8,10 +8,10 @@ Snapshot 2026-10-01: 116 registry rows, 87 tier A, 29 tier B. Last full
 
 ## 1. Follow-ups from the 2026-10-01 health pass
 
-- [ ] **Confirm Wing embed links.** `site=embed` shipped in `4e6d6ef` but the
+- [x] **Confirm Wing embed links.** Done 2026-10-01: 6/6 live. `site=embed` shipped in `4e6d6ef` but the
       live check was cut short when job-boards.greenhouse.io throttled the IP.
       Re-run `verify.py --company wing`.
-- [ ] **`verify.py`: tell throttling apart from dead links.** `sample_live`
+- [x] **`verify.py`: tell throttling apart from dead links.** Done: 404/410 is dead; 5xx, 403, 429, timeouts are unreachable after one retry. `sample_live`
       counts any 5xx or timeout as dead, so a 503 burst reads as broken links.
 - [ ] **Refresh `docs/tier-b-triage.md`.** Open items #3 and #4 (Amazon zero
       jobs, Google 1,180 cap) were fixed in July; add the page-27 Google fix.

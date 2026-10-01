@@ -11,7 +11,8 @@ checks per row and stores a baseline so the next run detects drift.
   unique       no duplicate requisition ids
   titled       no blank titles
   dated        share of postings carrying a real board timestamp
-  live         a random sample of job URLs returns 2xx
+  live         a random sample of job URLs returns 2xx; a 404 is dead, a
+               5xx, rate limit or timeout is unreachable, not dead
 
     python tools/verify.py
     python tools/verify.py --company nvidia --sample 10
@@ -28,7 +29,7 @@ import sys
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TypedDict, Any
+from typing import Any, NamedTuple, TypedDict
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -83,21 +84,50 @@ def baseline_keys(rows: list[dict[str, Any]]) -> dict[int, str]:
     return out
 
 
-async def sample_live(client: httpx.AsyncClient, jobs: list[Any], n: int) -> tuple[int, int]:
-    """Spot-check that job URLs resolve. Catches boards serving dead links."""
+class LiveSample(NamedTuple):
+    ok: int
+    dead: int
+    unreachable: int
+    tried: int
+
+
+# The server declined to answer, which says nothing about the posting. 403 is
+# here because bot shields (Cloudflare on coinbase.com) send it to clients
+# they dislike while the page loads fine in a browser.
+_TRANSIENT = {403, 408, 425, 429}
+
+
+async def sample_live(client: httpx.AsyncClient, jobs: list[Any], n: int,
+                      retry_delay: float = 3.0) -> LiveSample:
+    """Spot-check that job URLs resolve. Catches boards serving dead links.
+
+    Dead means the page is gone: a 4xx such as 404 or 410. A 5xx, rate limit,
+    bot block or network error is unreachable instead, after one retry. On
+    2026-10-01 a 503 burst from a throttled IP read as every link being dead.
+    """
     urls = [j.url for j in jobs if j.url.startswith("http")]
     if not urls or n <= 0:
-        return 0, 0
+        return LiveSample(0, 0, 0, 0)
     picks = random.sample(urls, min(n, len(urls)))
-    ok = 0
+    ok = dead = unreachable = 0
     for u in picks:
-        try:
-            r = await client.get(u, headers=HEADERS, timeout=20)
-            if r.status_code < 400:
+        for attempt in range(2):
+            try:
+                r = await client.get(u, headers=HEADERS, timeout=20)
+                code = r.status_code
+            except httpx.HTTPError:
+                code = None
+            if code is not None and code < 400:
                 ok += 1
-        except Exception:  # noqa: BLE001
-            pass
-    return ok, len(picks)
+                break
+            if code is not None and code < 500 and code not in _TRANSIENT:
+                dead += 1
+                break
+            if attempt == 0:
+                await asyncio.sleep(retry_delay)
+            else:
+                unreachable += 1
+    return LiveSample(ok, dead, unreachable, len(picks))
 
 
 async def check(client: httpx.AsyncClient, sem: asyncio.Semaphore, row: dict[str, Any], sample: int, baseline: dict[str, Any], key: str | None = None) -> CheckResult:
@@ -140,10 +170,14 @@ async def check(client: httpx.AsyncClient, sem: asyncio.Semaphore, row: dict[str
                              if classify(j.title)[0] in ("explicit_early", "unleveled"))
 
         if sample:
-            ok, tried = await sample_live(client, jobs, sample)
-            res["live"] = f"{ok}/{tried}"
-            if tried and ok < tried:
-                res["warnings"].append(f"{tried - ok}/{tried} sampled URLs dead")
+            s = await sample_live(client, jobs, sample)
+            res["live"] = f"{s.ok}/{s.tried}"
+            if s.dead:
+                res["warnings"].append(f"{s.dead}/{s.tried} sampled URLs dead")
+            if s.unreachable:
+                res["warnings"].append(
+                    f"{s.unreachable}/{s.tried} sampled URLs unreachable "
+                    f"(5xx, rate limit, bot block or network; not counted dead)")
 
         prev = baseline.get(res["key"], {}).get("count")
         if prev:
