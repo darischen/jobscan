@@ -827,12 +827,78 @@ async def tiktok(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> lis
             break
     return out
 
+# ---------------------------------------------------------------------- kula
+# Kula hosts boards at careers.kula.ai/{account}. The page is server rendered,
+# and its own client reads the same postings from a JSON endpoint under
+# /api/internal/ with no auth. `type` selects the handler server-side; 99 per
+# page is the value the site itself sends. meta carries count and pages.
+#
+# Measured 2026-10-01 on 10x Genomics: meta.count 34, 34 unique ids, every
+# one with launch_at, matching the 34 job links in the rendered page.
+KULA_PAGE = 99
+KULA_MAX_PAGES = 100     # loop bound only; meta.pages is the real stop
+
+
+def _kula_location(offices: list | None) -> str:
+    """Each office carries a ready 'City, State, Country' string."""
+    names: list[str] = []
+    for o in offices or []:
+        if not isinstance(o, dict):
+            continue
+        n = (o.get("location") or ", ".join(
+            x for x in (o.get("city"), o.get("state"), o.get("country")) if x) or "").strip()
+        if n and n not in names:
+            names.append(n)
+    return "; ".join(names)
+
+
+async def kula(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> list[Job]:
+    account = row.get("token", "")
+    if not account:
+        raise ValueError("kula rows need token (the careers.kula.ai account name)")
+    host = row.get("host") or "careers.kula.ai"
+    out: list[Job] = []
+    seen: set[str] = set()
+    for page in range(1, KULA_MAX_PAGES):
+        r = await c.get(f"https://{host}/api/internal/ats_job_posts", headers=HEADERS,
+                        params={"accountName": account, "page": page,
+                                "type": "ats_job_post.index", "items": KULA_PAGE})
+        r.raise_for_status()
+        d = r.json()
+        if d.get("errors"):
+            raise ValueError(f"kula: {str(d['errors'])[:120]}")
+        posts = d.get("data") or []
+        for j in posts:
+            jid = str(j.get("id") or "")
+            if not jid or jid in seen:
+                continue
+            seen.add(jid)
+            ats_job = j.get("ats_job") or {}
+            posted, src = dates.pick(("launch_at", dates.from_iso(j.get("launch_at"))))
+            out.append(Job(
+                company=company,
+                title=(j.get("title") or "").strip(),
+                # the bare id redirects to the canonical id-slug URL
+                url=f"https://{host}/{account}/{jid}",
+                location=_kula_location(ats_job.get("offices")),
+                ats="kula",
+                posted_at=posted,
+                posted_source=src,
+                raw_id=jid,
+                department=(ats_job.get("ats_department") or {}).get("name") or "",
+            ))
+        pages = (d.get("meta") or {}).get("pages") or 0
+        if not posts or page >= pages:
+            break
+    return out
+
 
 TIER_A = {
     "amazon": amazon,
     "eightfold": eightfold,
     "google": google,
     "ibm": ibm,
+    "kula": kula,
     "greenhouse": greenhouse,
     "lever": lever,
     "ashby": ashby,

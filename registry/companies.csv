@@ -1,5 +1,5 @@
 company,ticker,ats,token,tenant,site,wd,host,careers_url,query,notes
-10x Genomics,,custom,,,,,careers.kula.ai,https://careers.kula.ai/10xgenomics,,tier B - moved from greenhouse to Kula (careers.kula.ai) by 2026-09; greenhouse 10xgenomics returns 404; no Kula adapter
+10x Genomics,,kula,10xgenomics,,,,careers.kula.ai,https://careers.kula.ai/10xgenomics,,"moved from greenhouse to Kula by 2026-09; kula adapter on /api/internal/ats_job_posts, 34 postings 2026-10-01"
 3M,MMM,workday,,3m,Search,wd1,,https://3m.wd1.myworkdayjobs.com/en-US/Search,,
 AbbVie,,smartrecruiters,abbvie,,,,,https://careers.smartrecruiters.com/abbvie,,confirmed 1653 jobs
 Accenture,ACN,workday,,accenture,AccentureCareers,wd103,,https://www.accenture.com/us-en/careers/jobsearch,,"board is at the Workday 2000 total cap, add query rows to slice it"

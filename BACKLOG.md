@@ -51,7 +51,9 @@ counts are potential, not confirmed.
       count, 0 duplicate ids, 519 early-career hits. No date field: dates are
       decoded from the snowflake id (creation time, `posted_source=id_epoch`).
       Overlapping windows: one plain sweep lost 2 of 4,281 to live churn.
-- [ ] **10x Genomics**: moved to Kula (`careers.kula.ai`). Low value at 26 jobs.
+- [x] **10x Genomics**: done. New `kula` adapter on Kula's unauthenticated
+      `/api/internal/ats_job_posts` (token = account name). 34 = meta.count =
+      job links on the page, 0 duplicates, 100% dated, 0 early-career hits.
 
 ## 4. Tier C: browser required, or board not identified
 
