@@ -57,6 +57,12 @@ def load(path: str | Path) -> list[dict[str, Any]]:
         if ats == "oracle" and not (r.get("host") and r.get("site")):
             problems.append(f"line {i} {r['company']}: oracle needs host and site")
             continue
+        if ats == "successfactors" and not r.get("host"):
+            problems.append(f"line {i} {r['company']}: successfactors needs host")
+            continue
+        if ats == "successfactors" and r.get("site") not in ("", "unify"):
+            problems.append(f"line {i} {r['company']}: successfactors site must be blank or 'unify'")
+            continue
         if ats == "eightfold" and not (r.get("host") or r.get("token")):
             problems.append(f"line {i} {r['company']}: eightfold needs host or token")
             continue
