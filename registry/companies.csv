@@ -16,7 +16,7 @@ AMD,AMD,icims,,,,,careers.amd.com,https://careers.amd.com/careers-home,,tier B
 Ameren,,workday,,ameren,External,wd1,,https://ameren.wd1.myworkdayjobs.com/External?_gl=1*1e7z7pv*_gcl_au*MTg2MDc4NDY1NC4xNzM5MjE5ODk2LjMzMzYwMTE5MS4xNzQ0ODM2OTAxLjE3NDQ4MzY5MDE.*_ga*ODU0ODk2NDA1LjE3MzkyMTk4OTY.*_ga_8C6F435CY5*MTc0NjAzNTMyMy4xLjEuMTc0NjA0NTY3OS41OC4wLjA.,,confirmed 69 jobs
 American Express,AXP,oracle,,,CX_1,,egug.fa.us2.oraclecloud.com,https://careers.americanexpress.com/en/sites/CX_1/jobs,,confirmed 354 jobs
 Anthropic,,greenhouse,anthropic,,,,,https://www.anthropic.com/careers,,private
-Apple,AAPL,custom,,,,,jobs.apple.com,https://jobs.apple.com/en-us/search,,tier B - json search endpoint exists
+Apple,AAPL,apple,,,,,jobs.apple.com,https://jobs.apple.com/en-us/search,,2026-10-01: search pages are server rendered (hydration JSON + totalRecords); US slug by default via site; old /api/role/search and /api/csrfToken now 404
 Atlassian,TEAM,icims,,,,,careers-apac-atlassian.icims.com,https://careers-apac-atlassian.icims.com,,tier B
 Bloomberg,,workday,,bloomberg,Bloombergindustrygroup_External_Career_Site,wd1,,https://bloomberg.wd1.myworkdayjobs.com/Bloombergindustrygroup_External_Career_Site/,,confirmed 57 jobs
 Box,BOX,greenhouse,boxinc,,,,,https://careers.box.com/en/jobs,,probed  confirmed 117 jobs

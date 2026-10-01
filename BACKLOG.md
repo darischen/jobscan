@@ -35,7 +35,10 @@ counts are potential, not confirmed.
 
 ## 3. Tier B2: bespoke JSON, one company each
 
-- [ ] **Apple**: `POST /api/role/search` exists; CSRF token acquisition unsolved.
+- [x] **Apple**: promoted to tier A (`apple` adapter). No token needed: the
+      search pages are server rendered with hydration JSON and `totalRecords`;
+      `/api/role/search` and `/api/csrfToken` now 404. 4,523 US postings,
+      653 early-career hits, 99% dated, verify ok.
 - [ ] **Meta**: GraphQL `doc_id` rotates.
 - [ ] **Tesla**: listings load client-side, API unidentified.
 - [ ] **IBM**: no board marker in server HTML.

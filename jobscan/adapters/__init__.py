@@ -642,8 +642,151 @@ async def eightfold(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> 
             return out
 
 
+# --------------------------------------------------------------------- apple
+# jobs.apple.com is a server-rendered React Router app. Every search page
+# embeds its loader data as window.__staticRouterHydrationData, a JSON string
+# holding `searchResults` (20 per page) and the board's own `totalRecords`.
+# That is the whole listing over plain GET, so no CSRF token is needed.
+#
+# The old lead, POST /api/role/search behind an x-apple-csrf-token header,
+# is gone: both /api/role/search and /api/csrfToken return Apple's 404 page
+# (measured 2026-10-01). Nothing in the client calls them any more.
+#
+# A bare /en-us/search 301s to ?location=<geo>, so the location filter is
+# always applied. `site` overrides it; the default is the US slug. Measured
+# 2026-10-01 at sort=newest: 226 pages, 4,516 rows, 4,514 unique against a
+# reported 4,514. The two repeats are postings published mid-sweep pushing
+# rows down a page, hence the dedupe.
+import asyncio as _asyncio  # noqa: E402  kept in this section to avoid merge churn
+
+_APPLE_HYDRATION = re.compile(
+    r"window\.__staticRouterHydrationData\s*=\s*JSON\.parse\((\".*?\")\);", re.S)
+_APPLE_DAY = re.compile(r"([A-Z][a-z]{2})\s+(\d{1,2}),\s+(\d{4})")
+_APPLE_MONTHS = {m: i for i, m in enumerate(
+    ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1)}
+APPLE_PAGE_SIZE = 20       # fixed by the board, no size parameter
+APPLE_MAX_PAGES = 1000     # safety net; the total ends the loop long before
+APPLE_DEFAULT_LOCATION = "united-states-USA"
+APPLE_PAGE_DELAY = 0.3     # seconds between pages, to stay polite over ~230 GETs
+APPLE_RETRY_DELAY = 3.0    # base backoff for a transient 5xx on one page
+APPLE_RETRIES = 3          # per page; one 502 in 226 pages was seen live
+
+
+def _apple_search(html: str) -> dict:
+    m = _APPLE_HYDRATION.search(html)
+    if not m:
+        # A markup change must fail loudly, never read as "Apple has no jobs".
+        raise ValueError("apple: hydration data not found in search page")
+    data = json.loads(json.loads(m.group(1)))
+    search = (data.get("loaderData") or {}).get("search")
+    if not isinstance(search, dict):
+        raise ValueError("apple: hydration data has no search loader")
+    return search
+
+
+def _apple_day(value: Any) -> str | None:
+    """postingDate is 'Oct 01, 2026'. Fallback only; date with no clock time."""
+    if not isinstance(value, str):
+        return None
+    m = _APPLE_DAY.search(value)
+    mon = _APPLE_MONTHS.get(m.group(1)) if m else None
+    if not mon:
+        return None
+    return dates.from_iso(f"{m.group(3)}-{mon:02d}-{int(m.group(2)):02d}")
+
+
+def _apple_location(locs: Any) -> str:
+    parts = []
+    for loc in locs or []:
+        name = (loc.get("name") or "").strip()
+        country = (loc.get("countryName") or "").strip()
+        # Store-level rows carry only a city name ("Cupertino"), so the country
+        # is appended for runner.is_us_location to have something to read.
+        if name and country and name not in country:
+            parts.append(f"{name}, {country}")
+        elif name or country:
+            parts.append(name or country)
+    return "; ".join(parts)
+
+
+async def _apple_get(c: httpx.AsyncClient, url: str, params: dict) -> httpx.Response:
+    for attempt in range(APPLE_RETRIES):
+        try:
+            r = await c.get(url, params=params, follow_redirects=True,
+                            headers={**HEADERS, "Accept": "text/html"})
+        except httpx.TransportError:
+            if attempt == APPLE_RETRIES - 1:
+                raise
+        else:
+            if r.status_code < 500 or attempt == APPLE_RETRIES - 1:
+                r.raise_for_status()
+                return r
+        await _asyncio.sleep(APPLE_RETRY_DELAY * (attempt + 1))
+    raise AssertionError("unreachable")
+
+
+async def apple(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> list[Job]:
+    base = "https://jobs.apple.com/en-us/search"
+    where = row.get("site") or APPLE_DEFAULT_LOCATION
+    query = row.get("query", "")
+    out: list[Job] = []
+    seen: set[str] = set()
+    total: int | None = None
+    for page in range(1, APPLE_MAX_PAGES):
+        if page > 1:
+            await _asyncio.sleep(APPLE_PAGE_DELAY)
+        r = await _apple_get(c, base, {"location": where, "sort": "newest",
+                                       "page": page,
+                                       **({"search": query} if query else {})})
+        search = _apple_search(r.text)
+        if total is None:
+            total = int(search.get("totalRecords") or 0)
+        results = search.get("searchResults") or []
+        for j in results:
+            jid = str(j.get("id") or j.get("jobPositionId") or "")
+            if not jid or jid in seen:
+                continue
+            seen.add(jid)
+            # One evergreen retail req, id "PIPE-114438158", is stamped with
+            # the render time on every request, so it would look brand new on
+            # every scan. Its ids carry a "PIPE-" prefix; real requisitions
+            # are "<positionId>-<site code>". Trust no date for the former.
+            if jid.startswith("PIPE-"):
+                posted, src = None, ""
+            else:
+                posted, src = dates.pick(
+                    ("postDateInGMT", dates.from_iso(j.get("postDateInGMT"))),
+                    ("postingDate", _apple_day(j.get("postingDate"))),
+                )
+            team = j.get("team") or {}
+            slug = j.get("transformedPostingTitle") or ""
+            url = f"https://jobs.apple.com/en-us/details/{jid}/{slug}"
+            if team.get("teamCode"):
+                url += f"?team={team['teamCode']}"
+            out.append(Job(
+                company=company,
+                title=(j.get("postingTitle") or "").strip(),
+                url=url,
+                location=_apple_location(j.get("locations")),
+                ats="apple",
+                posted_at=posted,
+                posted_source=src,
+                # `id` is unique per posting. positionId is not: one req posted
+                # to several sites shares it (720 of 4,514 collide).
+                raw_id=jid,
+                department=team.get("teamName") or "",
+            ))
+        if len(results) < APPLE_PAGE_SIZE:
+            break
+        if total and len(seen) >= total:
+            break
+    return out
+
+
 TIER_A = {
     "amazon": amazon,
+    "apple": apple,
     "eightfold": eightfold,
     "google": google,
     "greenhouse": greenhouse,
