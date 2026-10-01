@@ -22,7 +22,7 @@ Bloomberg,,workday,,bloomberg,Bloombergindustrygroup_External_Career_Site,wd1,,h
 Box,BOX,greenhouse,boxinc,,,,,https://careers.box.com/en/jobs,,probed  confirmed 117 jobs
 Broadcom,AVGO,custom,,,,,www.broadcom.com,https://www.broadcom.com/company/careers,,tier B - unidentified
 Charles Schwab,SCHW,icims,,,,,career-ind-schwab.icims.com,https://career-ind-schwab.icims.com,,tier B
-Cisco,CSCO,custom,,,,,jobs.cisco.com,https://jobs.cisco.com/jobs/SearchJobs,,tier B
+Cisco,CSCO,workday,,cisco,Cisco_Careers,wd5,,https://careers.cisco.com/global/en/search-results,,"Phenom front-end (careers.cisco.com, refNum CISCISGLOBAL) over Workday; read Workday directly. 2026-10-01: Workday 1336, Phenom mirror 1307"
 Cloudflare,NET,greenhouse,cloudflare,,,,,https://www.cloudflare.com/careers/jobs/,,
 Cohere,,ashby,cohere,,,,,https://jobs.ashbyhq.com/cohere,,confirmed 138 jobs
 Coinbase,COIN,greenhouse,coinbase,,,,,https://job-boards.greenhouse.io/coinbase,,

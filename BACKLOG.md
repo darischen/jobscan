@@ -29,7 +29,11 @@ counts are potential, not confirmed.
       Supermicro, Altria
 - [ ] **icims** (5): AMD, Atlassian, Charles Schwab, GitHub, Panasonic. The
       `?format=json` path is dead; needs the newer `careers-home` API.
-- [ ] **phenom** (1): Cisco. Registry still says `custom`.
+- [x] **phenom** (1): Cisco. No adapter needed: the Phenom site's own
+      `applyUrl`s point at Workday, so the row now reads `workday`
+      `cisco` / `wd5` / `Cisco_Careers` directly. 2026-10-01: 1,339 postings
+      (Phenom mirror reported 1,307), 170 early-career hits, 100% dated,
+      `verify.py` ok.
 - [ ] **avature** (1): Intuit
 - [ ] **taleo** (1): UnitedHealth Group
 
