@@ -110,7 +110,7 @@ Vercel,,greenhouse,vercel,,,,,https://vercel.com/careers/,,confirmed 79 jobs
 Warner Bros Discovery,WBD,workday,,warnerbros,global,wd5,,https://warnerbros.wd5.myworkdayjobs.com/en-US/global/,,confirmed 445 jobs
 Waymo,,greenhouse,waymo,,,,,https://careers.withwaymo.com/jobs/search,,"confirmed 398 jobs; own greenhouse board, Google board had only 1"
 Wells Fargo,WFC,workday,,wf,WellsFargoJobs,wd1,wd1.myworkdaysite.com,https://wd1.myworkdaysite.com/recruiting/wf/WellsFargoJobs/,,confirmed 1866 jobs; shared-cluster myworkdaysite host
-Wing,,greenhouse,wing,,,,,https://www.google.com/about/careers/applications/jobs/results?company=Wing,,"confirmed 38 jobs; own greenhouse board, Google board had only 1"
+Wing,,greenhouse,wing,,embed,,,https://www.google.com/about/careers/applications/jobs/results?company=Wing,,"confirmed 38 jobs; own greenhouse board, Google board had only 1; site=embed because wing.com/careers/{id} 404s (2026-10-01)"
 Workday,WDAY,workday,,workday,Workday,wd5,,https://workday.wd5.myworkdayjobs.com/Workday,,
 XAI,,greenhouse,xai,,,,,https://job-boards.greenhouse.io/xai/,,includes X/Twitter hiring post-merger
 YouTube,,google,YouTube,,,,,https://www.google.com/about/careers/applications/jobs/results?company=YouTube,,Google board filtered to company=YouTube

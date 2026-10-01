@@ -107,7 +107,10 @@ async def amazon(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> lis
 _GOOG_BLOB = re.compile(r"AF_initDataCallback\((\{.*?\})\);", re.S)
 _GOOG_DATA = re.compile(r"data:\s*(\[.*?\])\s*,\s*sideChannel", re.S)
 _GOOG_SLUG = re.compile(r"[^a-z0-9]+")
-_GOOG_TOTAL = re.compile(r"([\d,]+)\s+jobs?\s+matched", re.I)
+# The board has worded its total two ways: "3,617 jobs matched" until mid
+# 2026, then "Showing 1 to 20 of 3414 rows". Missing it is silent, because
+# the loop still stops on a short page, so both wordings are kept.
+_GOOG_TOTAL = re.compile(r"([\d,]+)\s+jobs?\s+matched|of\s+([\d,]+)\s+rows", re.I)
 GOOGLE_PAGE_SIZE = 20
 # Safety net only. The board reports its own total and the loop stops on an
 # empty page, so this bound exists so a markup change cannot spin forever.
@@ -171,9 +174,10 @@ async def google(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> lis
         if total is None:
             m = _GOOG_TOTAL.search(r.text)
             if m:
-                total = int(m.group(1).replace(",", ""))
+                total = int((m.group(1) or m.group(2)).replace(",", ""))
+        records = _goog_records(r.text)
         fresh = 0
-        for j in _goog_records(r.text):
+        for j in records:
             jid = j[0]
             if jid in seen:
                 continue
@@ -206,7 +210,11 @@ async def google(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> lis
             ))
         # A short or empty page is the end of the board. The total is a second
         # stop condition for the case where the last page happens to be full.
-        if fresh == 0 or fresh < GOOGLE_PAGE_SIZE:
+        # Count records served, not new ids: the board reorders between
+        # requests, so a full page can repeat a posting from the page before.
+        # Stopping on fresh < 20 ended the full board at 539 of ~3,400.
+        # A full page with nothing new means the board is replaying itself.
+        if len(records) < GOOGLE_PAGE_SIZE or fresh == 0:
             break
         if total is not None and len(seen) >= total:
             break
@@ -220,16 +228,25 @@ async def greenhouse(c: httpx.AsyncClient, company: str, row: dict[str, Any]) ->
         params={"content": "true"}, headers=HEADERS,
     )
     r.raise_for_status()
+    # `absolute_url` is whatever the company configured, usually a page on its
+    # own site. When that site drops the route (Wing, 2026-10) the hosted job
+    # URL redirects to the same dead page, but the embed URL never redirects.
+    # `site=embed` opts a row into it.
+    embed = row.get("site") == "embed"
     out = []
     for j in r.json().get("jobs", []):
         posted, src = dates.pick(
             ("first_published", dates.from_iso(j.get("first_published"))),
             ("updated_at", dates.from_iso(j.get("updated_at"))),
         )
+        url = j.get("absolute_url", "")
+        if embed and j.get("id"):
+            url = (f"https://job-boards.greenhouse.io/embed/job_app"
+                   f"?for={token}&token={j['id']}")
         out.append(Job(
             company=company,
             title=j.get("title", ""),
-            url=j.get("absolute_url", ""),
+            url=url,
             location=(j.get("location") or {}).get("name", ""),
             ats="greenhouse",
             posted_at=posted,

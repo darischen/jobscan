@@ -18,7 +18,7 @@ COLUMNS = [
                     # workable|recruitee|icims|successfactors|custom
     "token",        # board slug for token-based boards
     "tenant",       # workday tenant
-    "site",         # workday site id, oracle siteNumber
+    "site",         # workday site id, oracle siteNumber, google location, greenhouse "embed"
     "wd",           # workday cluster: wd1, wd3, wd5, wd12 ...
     "host",         # oracle fa host, or full careers host for tier B
     "careers_url",  # human-facing careers page, always fill this in
