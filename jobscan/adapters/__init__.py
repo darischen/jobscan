@@ -436,43 +436,126 @@ async def workday(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> li
         base = f"https://{tenant}.{wd}.myworkdayjobs.com"
         public = f"{base}/{site}"
     url = f"{base}/wday/cxs/{tenant}/{site}/jobs"
-    out, offset, total = [], 0, None
+    found = await _workday_sweep(c, url, row.get("query", ""), {}, depth=0)
+    out: list[Job] = []
     paths: list[str] = []   # parallel to `out`, for the raw_id repair below
-    while True:  # Workday reports `total` only on the first page
+    for path, j in found.items():
+        posted, src = dates.pick(
+            ("startDate", dates.from_iso(j.get("startDate"))),
+            ("postedOn", dates.from_workday_relative(j.get("postedOn"))),
+        )
+        out.append(Job(
+            company=company,
+            title=j.get("title", ""),
+            url=f"{public}{path}",
+            location=_workday_location(j.get("locationsText", ""), path,
+                                       j.get("bulletFields")),
+            ats="workday",
+            posted_at=posted,
+            posted_source=src,
+            raw_id=j.get("bulletFields", [path])[0] if j.get("bulletFields") else path,
+        ))
+        paths.append(path)
+    return _workday_ids(out, paths)
+
+
+# Workday stops counting at 2,000. On NVIDIA (2026-10-01) the board reported
+# total 2000 while its facets summed to 2,656, and paging past offset 2,000
+# kept returning full pages of repeats: 4,019 rows, 1,999 unique. A board at
+# the cap is therefore sliced by a facet whose values each fit under it, and
+# the slices merged on externalPath. Accenture's registry note asked for query
+# rows to do this by hand; facets need no upkeep and cannot miss a posting
+# whose title matches no keyword.
+WORKDAY_CAP = 2000
+WORKDAY_PAGE = 20
+
+
+async def _workday_sweep(c: httpx.AsyncClient, url: str, query: str,
+                         applied: dict[str, list[str]],
+                         depth: int) -> dict[str, dict[str, Any]]:
+    """Every posting under `applied`, keyed by externalPath.
+
+    Keying on the path merges a posting that appears in several slices, which
+    a multi-valued facet such as locations produces. That has to happen here,
+    before _workday_ids: left in, the repeats would read as id collisions and
+    healthy requisition numbers would be rewritten to paths.
+    """
+    found: dict[str, dict[str, Any]] = {}
+    offset, total, facets = 0, None, []
+    while True:  # Workday reports `total` and facets only on the first page
         r = await c.post(
             url,
             headers={**HEADERS, "Content-Type": "application/json"},
-            json={"appliedFacets": {}, "limit": 20, "offset": offset,
-                  "searchText": row.get("query", "")},
+            json={"appliedFacets": applied, "limit": WORKDAY_PAGE,
+                  "offset": offset, "searchText": query},
         )
         r.raise_for_status()
         d = r.json()
         posts = d.get("jobPostings", [])
         if total is None:
             total = d.get("total") or 0
+            facets = d.get("facets") or []
+            if total >= WORKDAY_CAP and depth < 2:
+                plan = _workday_slices(facets, applied)
+                if plan:
+                    param, values = plan
+                    for v in values:
+                        found.update(await _workday_sweep(
+                            c, url, query, {**applied, param: [v]}, depth + 1))
+                    return found
         for j in posts:
             path = j.get("externalPath", "")
-            if not (j.get("title") or "").strip():
-                continue  # Workday occasionally emits a titleless stub
-            posted, src = dates.pick(
-                ("startDate", dates.from_iso(j.get("startDate"))),
-                ("postedOn", dates.from_workday_relative(j.get("postedOn"))),
-            )
-            out.append(Job(
-                company=company,
-                title=j.get("title", ""),
-                url=f"{public}{path}",
-                location=_workday_location(j.get("locationsText", ""), path,
-                                           j.get("bulletFields")),
-                ats="workday",
-                posted_at=posted,
-                posted_source=src,
-                raw_id=j.get("bulletFields", [path])[0] if j.get("bulletFields") else path,
-            ))
-            paths.append(path)
-        offset += 20
-        if len(posts) < 20 or offset >= total or offset > 5000:
-            return _workday_ids(out, paths)
+            if not path or not (j.get("title") or "").strip():
+                continue  # Workday occasionally emits a titleless or pathless stub
+            found.setdefault(path, j)
+        offset += WORKDAY_PAGE
+        # offset >= total also stops a still-capped slice at the cap rather
+        # than letting it page on through repeats.
+        if len(posts) < WORKDAY_PAGE or offset >= total or offset > 5000:
+            return found
+
+
+def _workday_facets(facets: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Flatten facet groups: locationMainGroup nests its real facets."""
+    flat = []
+    for f in facets:
+        vals = f.get("values") or []
+        if vals and all("facetParameter" in v for v in vals):
+            flat.extend(_workday_facets(vals))
+        elif vals and f.get("facetParameter"):
+            flat.append(f)
+    return flat
+
+
+def _workday_slices(facets: list[dict[str, Any]],
+                    applied: dict[str, list[str]]) -> tuple[str, list[str]] | None:
+    """Pick the facet to slice a capped board by, or None.
+
+    A facet only covers the board if its counts add up to the board's real
+    size. Single-valued facets (time type, job category) all sum to exactly
+    that size, so the most common sum is the estimate; a facet summing to
+    less leaves postings out and is skipped. Among facets whose every value
+    fits under the cap, the smallest sum costs the fewest requests. When none
+    fits, the facet with the fewest postings in oversized values is used and
+    those values are sliced again one level down.
+    """
+    usable = []
+    for f in _workday_facets(facets):
+        if f["facetParameter"] in applied:
+            continue
+        counts = [v.get("count", 0) for v in f["values"]]
+        usable.append((f, sum(counts), max(counts)))
+    if not usable:
+        return None
+    sums = Counter(s for _, s, _ in usable)
+    estimate = max(sums, key=lambda s: (sums[s], s))
+    covering = [(f, s, m) for f, s, m in usable if s >= estimate]
+    if not covering:
+        return None
+    fits = [(f, s, m) for f, s, m in covering if m < WORKDAY_CAP]
+    f, _, _ = (min(fits, key=lambda x: (x[1], len(x[0]["values"]))) if fits
+               else min(covering, key=lambda x: (x[2], x[1])))
+    return f["facetParameter"], [v["id"] for v in f["values"] if v.get("count")]
 
 
 # -------------------------------------------------------------------- oracle

@@ -80,8 +80,10 @@ postings and 1,813 early-career hits; the Google fix recovered ~2,700 more.
 
 ## 5. Data quality
 
-- [ ] **NVIDIA at Workday's 2,000 cap**: the board reports `total=2000`, so
-      the real count is unknown. Slice with query rows, as for Accenture.
+- [x] **NVIDIA at Workday's 2,000 cap**: the workday adapter now slices a
+      capped board by facet (`WORKDAY_CAP`). 2026-10-01: 2,655 postings, equal
+      to the partition facets' sum (was 2,000). Paging past the cap only
+      repeats: 4,019 rows held 1,999 unique.
 - [ ] **Accenture at Workday's 2,000 cap**: 1,998 with 19 duplicate ids.
 - [ ] **Salesforce**: 14 duplicate ids at 1,510 (new on 2026-10-01). Check
       whether Workday reorders between pages here, as eightfold does.
