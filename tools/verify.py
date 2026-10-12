@@ -10,7 +10,8 @@ checks per row and stores a baseline so the next run detects drift.
   paginated    count matches the board's own total, so pagination finished
   unique       no duplicate requisition ids
   titled       no blank titles
-  dated        share of postings carrying a real board timestamp
+  dated        share of postings carrying a real board timestamp; warns when
+               it falls against the baseline, not on boards that never date
   live         a random sample of job URLs returns 2xx; a 404 is dead, a
                5xx, rate limit or timeout is unreachable, not dead
 
@@ -40,7 +41,13 @@ from jobscan.adapters import HEADERS, TIER_A  # noqa: E402
 from jobscan.core import classify  # noqa: E402
 
 HEALTH = Path(__file__).resolve().parents[1] / "registry" / "health.json"
+DEFAULT_REGISTRY = "registry/companies.csv"
 DRIFT = 0.40  # a 40% swing in job count against baseline is worth a look
+# Boards change while they are read: JPMorgan came back 7,301 of 7,302 and
+# Microsoft 2,236 of 2,237. A gap is truncation only beyond this slack.
+DATED_DROP = 20          # percentage points below the baseline's dated share
+PAGINATED_SLACK = 2      # postings
+PAGINATED_PCT = 0.01     # of the board total, whichever is larger
 
 
 class CheckResult(TypedDict):
@@ -58,6 +65,23 @@ class CheckResult(TypedDict):
 
 def load_health() -> dict[str, Any]:
     return json.loads(HEALTH.read_text(encoding="utf-8")) if HEALTH.exists() else {}
+
+
+def merge_baseline(old: dict[str, Any], snap: dict[str, Any],
+                   live_keys: set[str], full_run: bool) -> dict[str, Any]:
+    """Today's snapshot over the old baseline, minus keys with no row.
+
+    The file only ever grew: a row removed from the registry, or rekeyed
+    when its company gained a second row ("SAP" -> "SAP [careers.sap.com]"),
+    left its old key behind for good. A full run knows every live key, so it
+    drops the rest. A row that failed today keeps its old baseline, since it
+    is still in the registry and the next run needs something to compare to.
+    A --company run sees only part of the registry and prunes nothing.
+    """
+    merged = {**old, **snap}
+    if full_run:
+        merged = {k: v for k, v in merged.items() if k in live_keys}
+    return merged
 
 
 def baseline_keys(rows: list[dict[str, Any]]) -> dict[int, str]:
@@ -91,6 +115,20 @@ class LiveSample(NamedTuple):
     tried: int
 
 
+# What a browser sends when a person opens a job link. metacareers.com
+# answers 400 without the Sec-Fetch set and 200 with it, so every Meta link
+# read as dead. HEADERS asks for JSON, which is right for board APIs and
+# wrong for a posting's public page.
+NAVIGATE = {
+    **HEADERS,
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+    "Upgrade-Insecure-Requests": "1",
+}
+
 # The server declined to answer, which says nothing about the posting. 403 is
 # here because bot shields (Cloudflare on coinbase.com) send it to clients
 # they dislike while the page loads fine in a browser.
@@ -113,7 +151,7 @@ async def sample_live(client: httpx.AsyncClient, jobs: list[Any], n: int,
     for u in picks:
         for attempt in range(2):
             try:
-                r = await client.get(u, headers=HEADERS, timeout=20)
+                r = await client.get(u, headers=NAVIGATE, timeout=20)
                 code = r.status_code
             except httpx.HTTPError:
                 code = None
@@ -138,6 +176,7 @@ async def check(client: httpx.AsyncClient, sem: asyncio.Semaphore, row: dict[str
            "live": "", "matches": 0}
     async with sem:
         try:
+            row.pop("_board_total", None)
             jobs = await TIER_A[ats](client, name, row)
         except httpx.HTTPStatusError as e:
             res.update(status="FAIL", warnings=[f"HTTP {e.response.status_code}"])
@@ -152,6 +191,13 @@ async def check(client: httpx.AsyncClient, sem: asyncio.Semaphore, row: dict[str
             res.update(status="FAIL", warnings=["board returned zero jobs"])
             return res
 
+        # Adapters record the board's own count on the row as they read it.
+        total = row.get("_board_total")
+        if total and abs(len(jobs) - total) > max(PAGINATED_SLACK,
+                                                  total * PAGINATED_PCT):
+            res["warnings"].append(f"{len(jobs)} of board total {total} "
+                                   f"(pagination incomplete?)")
+
         ids = [j.raw_id or j.url for j in jobs]
         dupes = [k for k, v in Counter(ids).items() if v > 1]
         if dupes:
@@ -163,8 +209,16 @@ async def check(client: httpx.AsyncClient, sem: asyncio.Semaphore, row: dict[str
 
         dated = sum(1 for j in jobs if j.posted_at)
         res["dated_pct"] = dated * 100 // len(jobs)
-        if res["dated_pct"] < 50:
-            res["warnings"].append(f"only {res['dated_pct']}% carry a date")
+        # Some boards never publish a date (radancy, meta, avature, two
+        # successfactors tenants). Once the baseline records that, staying
+        # undated is not news; losing dates the board used to carry is.
+        was = baseline.get(res["key"], {}).get("dated")
+        if was is None:
+            if res["dated_pct"] < 50:
+                res["warnings"].append(f"only {res['dated_pct']}% carry a date")
+        elif res["dated_pct"] < was - DATED_DROP:
+            res["warnings"].append(
+                f"dated share fell {was}% -> {res['dated_pct']}%")
 
         res["matches"] = sum(1 for j in jobs
                              if classify(j.title)[0] in ("explicit_early", "unleveled"))
@@ -194,7 +248,7 @@ async def check(client: httpx.AsyncClient, sem: asyncio.Semaphore, row: dict[str
 async def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--file", "-f", default="registry/companies.csv")
+    ap.add_argument("--file", "-f", default=DEFAULT_REGISTRY)
     ap.add_argument("--company", "-c")
     ap.add_argument("--sample", type=int, default=3,
                     help="job URLs to spot-check per board, 0 to skip")
@@ -238,12 +292,18 @@ async def main():
     if a.baseline:
         snap: dict[str, Any] = {r["key"]: {"count": r["count"], "ats": r["ats"],
                                "company": r["company"],
+                               "dated": r["dated_pct"],
                                "checked": datetime.now(timezone.utc)
                                .isoformat(timespec="seconds")}
                 for r in results if r["status"] != "FAIL"}
-        HEALTH.write_text(json.dumps({**baseline, **snap}, indent=2),
-                          encoding="utf-8")
-        print(f"baseline written to {HEALTH}")
+        merged = merge_baseline(baseline, snap, set(keys.values()),
+                                # a custom --file is not the registry this
+                                # health.json describes, so it prunes nothing
+                                full_run=not a.company and a.file == DEFAULT_REGISTRY)
+        HEALTH.write_text(json.dumps(merged, indent=2), encoding="utf-8")
+        pruned = len({**baseline, **snap}) - len(merged)
+        print(f"baseline written to {HEALTH}"
+              + (f" ({pruned} orphaned keys pruned)" if pruned else ""))
 
     return 1 if fails or (a.strict and warns) else 0
 

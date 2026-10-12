@@ -32,6 +32,23 @@ HEADERS = {
     "Pragma": "no-cache",
 }
 
+
+def _board_total(row: dict[str, Any], n: Any) -> None:
+    """Record the board's own posting count on the row, for tools/verify.py.
+
+    Most adapters already read a total to know when to stop paging, and then
+    threw it away. Every truncation found in 2026-10 (Google at page 27,
+    Lowe's and JPMorgan at offset 5,000, Apple on an empty page) was a count
+    that disagreed with a total the adapter was holding. Missing or zero
+    counts are ignored: single-list boards (lever, ashby) have none.
+    """
+    try:
+        n = int(str(n).replace(",", "")) if n is not None else 0
+    except ValueError:
+        return
+    if n > 0:
+        row["_board_total"] = n
+
 # -------------------------------------------------------------------- amazon
 # www.amazon.jobs exposes an open JSON search layer over their iCIMS
 # backend. No auth. account.amazon.jobs is the application portal and does
@@ -77,6 +94,7 @@ async def amazon(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> lis
             raise ValueError(str(d["error"])[:120])
         if hits is None:
             hits = d.get("hits") or 0
+            _board_total(row, hits)
         jobs = d.get("jobs") or []
         for j in jobs:
             posted, src = dates.pick(
@@ -219,6 +237,7 @@ async def google(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> lis
             break
         if total is not None and len(seen) >= total:
             break
+    _board_total(row, total)
     return out
 
 # ---------------------------------------------------------------- greenhouse
@@ -234,6 +253,7 @@ async def greenhouse(c: httpx.AsyncClient, company: str, row: dict[str, Any]) ->
     # URL redirects to the same dead page, but the embed URL never redirects.
     # `site=embed` opts a row into it.
     embed = row.get("site") == "embed"
+    _board_total(row, (r.json().get("meta") or {}).get("total"))
     out = []
     for j in r.json().get("jobs", []):
         posted, src = dates.pick(
@@ -337,6 +357,7 @@ async def smartrecruiters(c: httpx.AsyncClient, company: str, row: dict[str, Any
                 department=(j.get("department") or {}).get("label", ""),
             ))
         offset += 100
+        _board_total(row, d.get("totalFound"))
         if not content or offset >= d.get("totalFound", 0):
             return out
 
@@ -437,7 +458,8 @@ async def workday(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> li
         public = f"{base}/{site}"
     url = f"{base}/wday/cxs/{tenant}/{site}/jobs"
     applied = await _workday_filter(c, url, row.get("token", ""))
-    found = await _workday_sweep(c, url, row.get("query", ""), applied, depth=0)
+    found = await _workday_sweep(c, url, row.get("query", ""), applied, depth=0,
+                                 row=row)
     out: list[Job] = []
     paths: list[str] = []   # parallel to `out`, for the raw_id repair below
     for path, j in found.items():
@@ -481,7 +503,8 @@ WORKDAY_MAX_OFFSET = 100_000   # last-resort bound; the total and a page with
 
 async def _workday_sweep(c: httpx.AsyncClient, url: str, query: str,
                          applied: dict[str, list[str]],
-                         depth: int) -> dict[str, dict[str, Any]]:
+                         depth: int,
+                         row: dict[str, Any] | None = None) -> dict[str, dict[str, Any]]:
     """Every posting under `applied`, keyed by externalPath.
 
     Keying on the path merges a posting that appears in several slices, which
@@ -504,6 +527,10 @@ async def _workday_sweep(c: httpx.AsyncClient, url: str, query: str,
         if total is None:
             total = d.get("total") or 0
             facets = d.get("facets") or []
+            if row is not None:
+                # At the cap the reported total is a lie; the facets are not.
+                _board_total(row, _workday_estimate(facets, applied)
+                             if total == WORKDAY_CAP else total)
             if total == WORKDAY_CAP and depth < 2:
                 plan = _workday_slices(facets, applied)
                 if plan:
@@ -572,6 +599,15 @@ def _workday_facets(facets: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return flat
 
 
+def _workday_estimate(facets: list[dict[str, Any]],
+                      applied: dict[str, list[str]]) -> int:
+    """A capped board's real size: the most common facet sum (see below)."""
+    sums = Counter(sum(v.get("count", 0) for v in f["values"])
+                   for f in _workday_facets(facets)
+                   if f["facetParameter"] not in applied)
+    return max(sums, key=lambda s: (sums[s], s)) if sums else 0
+
+
 def _workday_slices(facets: list[dict[str, Any]],
                     applied: dict[str, list[str]]) -> tuple[str, list[str]] | None:
     """Pick the facet to slice a capped board by, or None.
@@ -629,6 +665,7 @@ async def oracle(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> lis
         items = r.json().get("items") or [{}]
         if total is None:
             total = items[0].get("TotalJobsCount") or 0
+            _board_total(row, total)
         reqs = items[0].get("requisitionList") or []
         fresh = 0
         for j in reqs:
@@ -756,6 +793,7 @@ async def eightfold(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> 
         d = r.json()
         if total is None:
             total = d.get("count") or 0
+            _board_total(row, total)
         positions = d.get("positions") or []
         for j in positions:
             jid = str(j.get("id") or j.get("ats_job_id") or "")
@@ -896,6 +934,7 @@ async def _eightfold_pcsx(c: httpx.AsyncClient, company: str, row: dict[str, Any
         # The count drifts by a row or two within one sweep as postings open
         # and close; stop at the largest seen so a dip never cuts it short.
         total = max(total, int(d.get("count") or 0))
+        _board_total(row, total)
         positions = d.get("positions") or []
         for p in positions:
             jid = str(p.get("id") or "")
@@ -970,6 +1009,7 @@ async def ibm(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> list[J
         if total is None:
             t = hits.get("total")
             total = (t.get("value") if isinstance(t, dict) else t) or 0
+            _board_total(row, total)
         records = hits.get("hits") or []
         for h in records:
             s = h.get("_source") or {}
@@ -1071,6 +1111,7 @@ async def tiktok(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> lis
         # The largest count seen, so a board that grows mid-sweep is read
         # to its new end rather than the end it had on the first page.
         total = max(total, data.get("count") or 0)
+        _board_total(row, total)
         posts = data.get("job_post_list") or []
         for j in posts:
             jid = str(j.get("id") or "")
@@ -1154,6 +1195,7 @@ async def kula(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> list[
                 department=(ats_job.get("ats_department") or {}).get("name") or "",
             ))
         pages = (d.get("meta") or {}).get("pages") or 0
+        _board_total(row, (d.get("meta") or {}).get("count"))
         if not posts or page >= pages:
             break
     return out
@@ -1194,6 +1236,7 @@ async def icims(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> list
         d = r.json()
         if total is None:
             total = d.get("totalCount") or d.get("count") or 0
+            _board_total(row, total)
         jobs = d.get("jobs") or []
         for item in jobs:
             j = item.get("data") or {}
@@ -1311,6 +1354,8 @@ async def radancy(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> li
         if pages is None:
             m = _RADANCY_PAGES.search(fragment)
             total = _RADANCY_TOTAL.search(fragment)
+            if total:
+                _board_total(row, total.group(1))
             # Prefer the reported page count; derive it from the total if not.
             pages = (int(m.group(1)) if m else
                      -(-int(total.group(1)) // RADANCY_PAGE) if total else 0)
@@ -1461,6 +1506,7 @@ async def apple(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> list
             # One evergreen retail req, id "PIPE-114438158", is stamped with
             # the render time on every request, so it would look brand new on
             # every scan. Its ids carry a "PIPE-" prefix; real requisitions
+            _board_total(row, total)
             # are "<positionId>-<site code>". Trust no date for the former.
             if jid.startswith("PIPE-"):
                 posted, src = None, ""
@@ -1717,7 +1763,7 @@ def _sf_classic_rows(page: str, host: str, company: str) -> list[Job]:
 
 
 async def _sf_classic(c: httpx.AsyncClient, company: str, host: str,
-                      query: str) -> list[Job]:
+                      query: str, row: dict[str, Any]) -> list[Job]:
     out: list[Job] = []
     seen: set[str] = set()
     start, total = 0, None
@@ -1738,6 +1784,7 @@ async def _sf_classic(c: httpx.AsyncClient, company: str, host: str,
         for j in rows:
             if j.raw_id not in seen:
                 seen.add(j.raw_id)
+                _board_total(row, total)
                 out.append(j)
         # startrow is an offset, so advance by what the page actually held
         # rather than assuming the theme's page size.
@@ -1749,7 +1796,7 @@ async def _sf_classic(c: httpx.AsyncClient, company: str, host: str,
 
 
 async def _sf_unify(c: httpx.AsyncClient, company: str, host: str,
-                    query: str) -> list[Job]:
+                    query: str, row: dict[str, Any]) -> list[Job]:
     r = await c.get(f"https://{host}/search/", params={"q": query},
                     headers={**HEADERS, "Accept": "text/html"})
     r.raise_for_status()
@@ -1785,6 +1832,7 @@ async def _sf_unify(c: httpx.AsyncClient, company: str, host: str,
                     continue
                 seen.add(rid)
                 out.append(_sf_unify_job(j, company, host, locale, rid))
+                _board_total(row, total)
             if len(seen) >= total:
                 return out
             if not results:
@@ -1820,8 +1868,8 @@ async def successfactors(c: httpx.AsyncClient, company: str,
         raise ValueError("successfactors rows need host")
     query = row.get("query", "")
     if row.get("site") == "unify":
-        return await _sf_unify(c, company, host, query)
-    return await _sf_classic(c, company, host, query)
+        return await _sf_unify(c, company, host, query, row)
+    return await _sf_classic(c, company, host, query, row)
 
 
 # ----------------------------------------------------------------- atlassian
@@ -2143,6 +2191,7 @@ async def avature(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> li
             seen.add(card["id"])
             fresh += 1
             out.append(Job(
+            _board_total(row, total)
                 company=company,
                 title=card["title"],
                 url=card["url"],
