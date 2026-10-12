@@ -604,11 +604,15 @@ def _workday_slices(facets: list[dict[str, Any]],
 
 
 # -------------------------------------------------------------------- oracle
+ORACLE_MAX_OFFSET = 100_000   # last resort; the total ends the loop first
+
+
 async def oracle(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> list[Job]:
     host, site = row.get("host", ""), row.get("site", "")
     if not host or not site:
         raise ValueError("oracle rows need host and site columns")
     out, offset, total = [], 0, None
+    seen: set[str] = set()
     while True:
         r = await c.get(
             f"https://{host}/hcmRestApi/resources/latest/recruitingCEJobRequisitions",
@@ -626,8 +630,13 @@ async def oracle(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> lis
         if total is None:
             total = items[0].get("TotalJobsCount") or 0
         reqs = items[0].get("requisitionList") or []
+        fresh = 0
         for j in reqs:
-            rid = j.get("Id", "")
+            rid = str(j.get("Id", ""))
+            if rid in seen:
+                continue
+            seen.add(rid)
+            fresh += 1
             posted, src = dates.pick(
                 ("PostedDate", dates.from_iso(j.get("PostedDate"))),
                 ("RelevantDate", dates.from_iso(j.get("RelevantDate"))),
@@ -646,8 +655,11 @@ async def oracle(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> lis
                 raw_id=str(rid),
             ))
         offset += 100
-        # Oracle sometimes returns 99 on a full page, so trust TotalJobsCount
-        if not reqs or offset >= total or offset > 5000:
+        # Oracle sometimes returns 99 on a full page, so trust TotalJobsCount.
+        # There used to be an `offset > 5000` stop as well: JPMorgan reports
+        # 7,302 and pages cleanly past it, but read as exactly 5,100 on every
+        # scan. A page with nothing new now guards against a replaying board.
+        if not reqs or offset >= total or not fresh or offset > ORACLE_MAX_OFFSET:
             return out
 
 

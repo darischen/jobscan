@@ -130,7 +130,11 @@ postings and 1,813 early-career hits; the Google fix recovered ~2,700 more.
       2026-10-12, two runs: 1,525 of 1,525, total unchanged before and after.
 - [x] **Workday (the company)**: 2 duplicate ids at 373. Same cause as
       Salesforce. 2026-10-12, two runs: 373 of 373.
-- [ ] **JPMorgan Chase**: 5,100 postings, suspiciously round. Check for a cap.
+- [x] **JPMorgan Chase**: 5,100 was our own cap, not Oracle's. The adapter
+      stopped past offset 5,000; the board reports 7,302 and pages cleanly.
+      2026-10-12: 7,301 (one withdrawn mid-sweep), rebaselined. Lowe's had
+      the same bug in the workday adapter (5,020 of 12,603). Every other
+      adapter's page bound is at least 2x its largest board.
 - [ ] **SAP cross-board overlap**: one title appears on both careers.sap.com
       and the SmartRecruiters board. Confirm whether it is one posting twice.
 - [ ] **Verily Life Sciences**: ~1 posting via the Google org facet, no
