@@ -3,10 +3,15 @@
 Worked top to bottom. Tick an item in the commit that completes it, with the
 measured result next to it, so this file stays a record rather than a wish list.
 
-Snapshot 2026-10-01, end of day: 117 registry rows, **105 tier A, 12 tier B**
-(was 116 / 87 / 29 that morning). Last full `verify.py`: 84 ok, 21 warn,
-0 fail, baselines rewritten. The 18 newly promoted rows carry 23,369
-postings and 1,813 early-career hits; the Google fix recovered ~2,700 more.
+Snapshot 2026-10-12: 118 registry rows, **116 tier A, 2 tier B** (Meta,
+pending the owner's decision, and Tesla, browser only). On 2026-10-01 it
+was 117 / 105 / 12, and 116 / 87 / 29 that morning.
+
+2026-10-12 also found three of our own paging limits silently truncating
+boards: Workday's 2,000 cap (NVIDIA 2,000 -> ~2,700), and `offset > 5000`
+stops in the workday and oracle adapters (Lowe's 5,020 -> 12,603,
+JPMorgan 5,100 -> 7,301). A full `verify.py` on an unfiltered network:
+0 fail, no dead or unreachable links.
 
 ## 1. Follow-ups from the 2026-10-01 health pass
 
@@ -63,7 +68,7 @@ postings and 1,813 early-career hits; the Google fix recovered ~2,700 more.
       windows against live churn.
 - [x] **10x Genomics**: new `kula` adapter. 34 = board count.
 
-## 4. Remaining tier B (12 rows)
+## 4. Remaining tier B (12 rows on 2026-10-01; 2 left)
 
 - [x] **eightfold PCSX mode: Microsoft, PayPal, Qualcomm.** Highest value
       left. `/api/pcsx/search?domain=<d>&start=N` answers for all three once
