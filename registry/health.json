@@ -663,5 +663,23 @@
     "ats": "workday",
     "company": "Verily",
     "checked": "2026-10-12T11:33:41+00:00"
+  },
+  "Fidelity National Information Services": {
+    "count": 545,
+    "ats": "workday",
+    "company": "Fidelity National Information Services",
+    "checked": "2026-10-12T11:42:31+00:00"
+  },
+  "Fidelity": {
+    "count": 795,
+    "ats": "workday",
+    "company": "Fidelity",
+    "checked": "2026-10-12T11:42:31+00:00"
+  },
+  "Meta": {
+    "count": 1138,
+    "ats": "meta",
+    "company": "Meta",
+    "checked": "2026-10-12T11:42:37+00:00"
   }
 }

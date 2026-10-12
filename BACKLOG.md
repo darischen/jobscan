@@ -3,9 +3,8 @@
 Worked top to bottom. Tick an item in the commit that completes it, with the
 measured result next to it, so this file stays a record rather than a wish list.
 
-Snapshot 2026-10-12: 118 registry rows, **116 tier A, 2 tier B** (Meta,
-pending the owner's decision, and Tesla, browser only). On 2026-10-01 it
-was 117 / 105 / 12, and 116 / 87 / 29 that morning.
+Snapshot 2026-10-12: 119 registry rows, **118 tier A, 1 tier B** (Tesla,
+browser only). On 2026-10-01 it was 117 / 105 / 12, and 116 / 87 / 29 that morning.
 
 2026-10-12 also found three of our own paging limits silently truncating
 boards: Workday's 2,000 cap (NVIDIA 2,000 -> ~2,700), and `offset > 5000`
@@ -54,11 +53,11 @@ JPMorgan 5,100 -> 7,301). A full `verify.py` on an unfiltered network:
 - [x] **Apple**: new `apple` adapter. No token needed: search pages are
       server rendered with the results as JSON plus `totalRecords`. 4,523 US
       postings, 653 early-career hits.
-- [x] **Meta**: new `meta` adapter, merged **disabled**. Reads the rotating
-      `doc_id` from the page's bundles each run; 1,061 postings, matching the
-      job sitemap exactly. `robots.txt` says automated collection is
-      prohibited without written permission, so the row is `custom` until
-      the owner decides. Set `ats=meta` to enable.
+- [x] **Meta**: new `meta` adapter. Reads the rotating `doc_id` from the
+      page's bundles each run; 1,061 postings on 2026-10-01, matching the job
+      sitemap exactly. `robots.txt` says automated collection is prohibited
+      without written permission; merged disabled, then enabled by owner
+      decision on 2026-10-12: 1,138 postings, 166 early-career hits.
 - [ ] **Tesla**: blocked. Akamai answers 403 to plain HTTP on every
       tesla.com path, homepage included. Browser tier only (section 6).
 - [x] **IBM**: new `ibm` adapter on `www-api.ibm.com/search/api/v2`. 2,044 =
@@ -68,7 +67,7 @@ JPMorgan 5,100 -> 7,301). A full `verify.py` on an unfiltered network:
       windows against live churn.
 - [x] **10x Genomics**: new `kula` adapter. 34 = board count.
 
-## 4. Remaining tier B (12 rows on 2026-10-01; 2 left)
+## 4. Remaining tier B (12 rows on 2026-10-01; only Tesla left)
 
 - [x] **eightfold PCSX mode: Microsoft, PayPal, Qualcomm.** Highest value
       left. `/api/pcsx/search?domain=<d>&start=N` answers for all three once
@@ -115,7 +114,7 @@ JPMorgan 5,100 -> 7,301). A full `verify.py` on an unfiltered network:
         (`site=pcsx`, query `morganstanley.com`; the v2 API 403s). 1,286 of
         1,286, 22 early-career hits, 100% dated, verify ok.
 - [ ] **Tesla**: browser only (see section 3).
-- [ ] **Meta**: owner decision (see section 3).
+- [x] **Meta**: enabled 2026-10-12 by owner decision (see section 3).
 
 ## 5. Data quality
 
@@ -152,9 +151,9 @@ JPMorgan 5,100 -> 7,301). A full `verify.py` on an unfiltered network:
       `verily.wd1` / `Verily_Careers`, linked from verily.com/careers.
       `discover.py` missed it (tenant not derived from the name). New row:
       78 of 78, 4 early-career hits, verify ok (2026-10-12).
-- [ ] **TikTok dates are inferred**: decoded from the id's creation time
+- [x] **TikTok dates are inferred**: decoded from the id's creation time
       (`posted_source=id_epoch`), so evergreen postings show 2023. Owner
-      sign-off, or drop the date.
+      decision 2026-10-12: keep them.
 
 ## 6. Tooling
 
