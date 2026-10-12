@@ -118,10 +118,18 @@ postings and 1,813 early-career hits; the Google fix recovered ~2,700 more.
       capped board by facet (`WORKDAY_CAP`). 2026-10-01: 2,655 postings, equal
       to the partition facets' sum (was 2,000). Paging past the cap only
       repeats: 4,019 rows held 1,999 unique.
-- [ ] **Accenture at Workday's 2,000 cap**: 1,998 with 19 duplicate ids.
-- [ ] **Salesforce**: 14 duplicate ids at 1,510 (new on 2026-10-01). Check
-      whether Workday reorders between pages here, as eightfold does.
-- [ ] **Workday (the company)**: 2 duplicate ids at 373.
+- [x] **Accenture at Workday's 2,000 cap**: the real board is ~42,100
+      postings (India 35,633, US 750) and no facet slices it under the cap
+      cheaply (~2,100 requests). Workday rows can now filter server side via
+      `token` = `facet=value name`; Accenture sets
+      `locationCountry=United States of America`. 2026-10-12: 771 of the
+      filtered 771, 22 early-career hits, verify ok, rebaselined.
+- [x] **Salesforce**: 14 duplicate ids at 1,510. The old loop kept every row
+      it was served, so a posting repeated across pages (the board changing
+      mid-sweep) counted twice. Since 185c8d6 rows merge on externalPath.
+      2026-10-12, two runs: 1,525 of 1,525, total unchanged before and after.
+- [x] **Workday (the company)**: 2 duplicate ids at 373. Same cause as
+      Salesforce. 2026-10-12, two runs: 373 of 373.
 - [ ] **JPMorgan Chase**: 5,100 postings, suspiciously round. Check for a cap.
 - [ ] **SAP cross-board overlap**: one title appears on both careers.sap.com
       and the SmartRecruiters board. Confirm whether it is one posting twice.
