@@ -682,6 +682,8 @@ async def eightfold(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> 
     host = row.get("host") or (f"{row['token']}.eightfold.ai" if row.get("token") else "")
     if not host:
         raise ValueError("eightfold rows need host or token")
+    if row.get("site") == "pcsx":
+        return await _eightfold_pcsx(c, company, row, host)
     domain = row.get("query", "")
     out: list[Job] = []
     seen: set[str] = set()
@@ -724,6 +726,130 @@ async def eightfold(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> 
         start += EIGHTFOLD_STEP
         if not positions or start >= total:
             return out
+
+
+# ------------------------------------------------------------ eightfold pcsx
+# Tenants that refuse /api/apply/v2/jobs with 403 "Not authorized for PCSX"
+# still serve the newer search endpoint the career site itself calls,
+# {host}/api/pcsx/search?domain=<d>&start=N. Selected per row with
+# site=pcsx; `query` carries the tenant domain (microsoft.com). Rows without
+# site=pcsx, Netflix among them, take the path above unchanged.
+#
+# Session: the endpoint answered 429 without the cookies the /careers page
+# sets (_vs, _vscid, _vscidv2) on 2026-10-01, and 200 without them on
+# 2026-10-12. One GET of /careers per sweep costs nothing and covers both,
+# and a 429 mid-sweep re-establishes it before backing off.
+#
+# Paging: 10 rows a page whatever `num`, `limit` or `pageSize` say (measured
+# 2026-10-12 on all three tenants). The default sort is postedTs descending,
+# and the order is no more stable than the old path's. PayPal on 2026-10-12:
+# count 310, two step-10 sweeps each returned 305 unique ids (4 duplicates,
+# 5 skipped); one step-5 sweep returned 311 unique against counts of 309-311
+# reported across its own pages. Qualcomm: step 10 gave 2,042 of 2,083,
+# step 5 gave 2,082 (count drifting 2,083 to 2,084 mid-sweep) and on a
+# repeat 2,081 of 2,081. Microsoft: step 10 gave 2,228 of 2,235, step 5 all
+# 2,235. Qualcomm and PayPal stamp postedTs at day resolution, so hundreds
+# of rows tie (563 on one Qualcomm date) and their order is not fixed;
+# Microsoft's are to the second and lose least. So the same half-page
+# overlap as the path above, and the same dedupe on id.
+PCSX_PAGE = 10
+PCSX_STEP = 5            # half a page: consecutive windows overlap by 5 rows
+PCSX_PAUSE = 0.3         # seconds between pages, one sweep per tenant
+PCSX_RETRIES = 4         # per page, for 429 / 5xx / transport errors
+PCSX_BACKOFF = 5.0       # seconds, multiplied by the attempt number
+PCSX_MAX_PAGES = 2000    # loop bound only; the board's count is the real stop
+
+
+async def _pcsx_session(c: httpx.AsyncClient, host: str) -> None:
+    r = await c.get(f"https://{host}/careers", follow_redirects=True,
+                    headers={**HEADERS, "Accept": "text/html,application/xhtml+xml"})
+    r.raise_for_status()
+
+
+async def _pcsx_get(c: httpx.AsyncClient, host: str, params: dict[str, Any]) -> dict:
+    for attempt in range(PCSX_RETRIES):
+        last = attempt == PCSX_RETRIES - 1
+        try:
+            r = await c.get(f"https://{host}/api/pcsx/search", params=params,
+                            headers={**HEADERS, "Referer": f"https://{host}/careers"})
+        except httpx.TransportError:
+            if last:
+                raise
+        else:
+            if r.status_code == 429 or r.status_code >= 500:
+                if last:
+                    r.raise_for_status()
+                if r.status_code == 429:
+                    await asyncio.sleep(PCSX_BACKOFF * (attempt + 1))
+                    await _pcsx_session(c, host)
+                    continue
+            else:
+                r.raise_for_status()
+                body = r.json()
+                data = body.get("data")
+                if not isinstance(data, dict):
+                    err = (body.get("error") or {}).get("message") or "no data"
+                    raise ValueError(f"pcsx search: {err}")
+                return data
+        await asyncio.sleep(PCSX_BACKOFF * (attempt + 1))
+    raise AssertionError("unreachable")
+
+
+def _pcsx_job(p: dict[str, Any], company: str, host: str) -> Job:
+    jid = str(p.get("id") or "")
+    # postedTs is the date the board shows and sorts by; creationTs is when
+    # the requisition was created in Eightfold, sometimes months earlier.
+    # Both are epoch seconds, present on every row of all three tenants on
+    # 2026-10-12.
+    posted, src = dates.pick(
+        ("postedTs", dates.from_epoch_ms(p.get("postedTs"))),
+        ("creationTs", dates.from_epoch_ms(p.get("creationTs"))),
+    )
+    path = p.get("positionUrl") or (f"/careers/job/{jid}" if jid else "")
+    # `locations` is the tenant's own wording ("United States, Washington,
+    # Redmond", "Hyderabad, Telangana, India"). standardizedLocations is
+    # deliberately not used: it abbreviates to "Hyderabad, TS, IN" and
+    # "Dublin, D, IE", where IN reads as Indiana to runner.is_us_location.
+    return Job(
+        company=company,
+        title=p.get("name") or "",
+        url=f"https://{host}{path}" if path.startswith("/") else path,
+        location="; ".join(p.get("locations") or []),
+        ats="eightfold",
+        posted_at=posted,
+        posted_source=src,
+        raw_id=jid,
+        department=p.get("department") or "",
+    )
+
+
+async def _eightfold_pcsx(c: httpx.AsyncClient, company: str, row: dict[str, Any],
+                          host: str) -> list[Job]:
+    domain = row.get("query", "")
+    if not domain:
+        raise ValueError("eightfold pcsx rows need the tenant domain in query")
+    await _pcsx_session(c, host)
+    out: list[Job] = []
+    seen: set[str] = set()
+    start, total = 0, 0
+    for page in range(PCSX_MAX_PAGES):
+        if page:
+            await asyncio.sleep(PCSX_PAUSE)
+        d = await _pcsx_get(c, host, {"domain": domain, "start": start})
+        # The count drifts by a row or two within one sweep as postings open
+        # and close; stop at the largest seen so a dip never cuts it short.
+        total = max(total, int(d.get("count") or 0))
+        positions = d.get("positions") or []
+        for p in positions:
+            jid = str(p.get("id") or "")
+            if not jid or jid in seen:
+                continue        # overlapping windows re-serve rows by design
+            seen.add(jid)
+            out.append(_pcsx_job(p, company, host))
+        start += PCSX_STEP
+        if not positions or start >= total:
+            return out
+    raise RuntimeError(f"pcsx sweep of {host} exceeded {PCSX_MAX_PAGES} pages")
 
 # ----------------------------------------------------------------------- ibm
 # ibm.com/careers/search is an Adobe page whose results widget posts to IBM's
