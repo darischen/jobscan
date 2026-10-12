@@ -18,7 +18,8 @@ COLUMNS = [
                     # workable|recruitee|icims|successfactors|custom
     "token",        # board slug for token-based boards
     "tenant",       # workday tenant
-    "site",         # workday site id, oracle siteNumber, google location, greenhouse "embed"
+    "site",         # workday site id, oracle siteNumber, google location, greenhouse "embed",
+                    # successfactors "unify", eightfold "pcsx"
     "wd",           # workday cluster: wd1, wd3, wd5, wd12 ...
     "host",         # oracle fa host, or full careers host for tier B
     "careers_url",  # human-facing careers page, always fill this in
@@ -65,6 +66,12 @@ def load(path: str | Path) -> list[dict[str, Any]]:
             continue
         if ats == "eightfold" and not (r.get("host") or r.get("token")):
             problems.append(f"line {i} {r['company']}: eightfold needs host or token")
+            continue
+        if ats == "eightfold" and r.get("site") not in ("", "pcsx"):
+            problems.append(f"line {i} {r['company']}: eightfold site must be blank or 'pcsx'")
+            continue
+        if ats == "eightfold" and r.get("site") == "pcsx" and not r.get("query"):
+            problems.append(f"line {i} {r['company']}: eightfold pcsx needs the tenant domain in query")
             continue
         if ats == "icims" and not r.get("host"):
             problems.append(f"line {i} {r['company']}: icims needs host")

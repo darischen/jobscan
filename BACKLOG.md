@@ -65,11 +65,19 @@ postings and 1,813 early-career hits; the Google fix recovered ~2,700 more.
 
 ## 4. Remaining tier B (12 rows)
 
-- [ ] **eightfold PCSX mode: Microsoft, PayPal, Qualcomm.** Highest value
+- [x] **eightfold PCSX mode: Microsoft, PayPal, Qualcomm.** Highest value
       left. `/api/pcsx/search?domain=<d>&start=N` answers for all three once
       the `/careers` page has set session cookies (429 without them);
       Microsoft reports 2,352. The July "PCSX disabled" diagnosis came from
       the older `/api/apply/v2/jobs` path only.
+      Done 2026-10-12: `site=pcsx` rows, tenant domain in `query`, all three
+      in tier A. verify.py: Microsoft 2,236 against a count of 2,237 read
+      just after (the board grew 2,235 to 2,237 during the hour), 37
+      early-career hits; PayPal 312 of 312, 9 hits; Qualcomm 2,081 of 2,081,
+      140 hits. All unique ids, 100% dated (`postedTs`), 3/3 links live.
+      The order reshuffles like the old path (step 10 lost 5, 41 and 7
+      rows), so the same half-page overlap. Qualcomm's 71 "Tijuana, Baja
+      California, Mexico" rows read as US until `runner` masked that name.
 - [x] **Atlassian**: unpaged JSON at `atlassian.com/endpoint/careers/listings`
       (351 entries, 333 unique ids, no total field). Small dedicated adapter.
       Done 2026-10-12: `atlassian` adapter, dedupes on the iCIMS id. 347
