@@ -1407,6 +1407,14 @@ APPLE_DEFAULT_LOCATION = "united-states-USA"
 APPLE_PAGE_DELAY = 0.3     # seconds between pages, to stay polite over ~230 GETs
 APPLE_RETRY_DELAY = 3.0    # base backoff for a transient 5xx on one page
 APPLE_RETRIES = 3          # per page; one 502 in 226 pages was seen live
+# Empty pages are a different failure from a 5xx. On 2026-10-12, 9 of 60
+# sequential requests (15%) came back with no search data, scattered at
+# random with a longest run of 2, which looks like some backends behind the
+# load balancer rather than throttling. Three tries per page fails a
+# 220-page sweep about half the time; eight makes it ~1 in 20,000. Random
+# failures do not need a long wait, so the retry is quick.
+APPLE_EMPTY_RETRIES = 8
+APPLE_EMPTY_DELAY = 0.5    # seconds
 
 
 def _apple_search(html: str) -> dict:
@@ -1479,7 +1487,7 @@ async def apple(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> list
         # reached (a real last page is short and ends the loop first), so an
         # empty one is retried, and one that stays empty raises rather than
         # returning a partial board.
-        for attempt in range(APPLE_RETRIES):
+        for attempt in range(APPLE_EMPTY_RETRIES):
             r = await _apple_get(c, base, {"location": where, "sort": "newest",
                                            "page": page,
                                            **({"search": query} if query else {})})
@@ -1487,17 +1495,18 @@ async def apple(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> list
             results = search.get("searchResults") or []
             if results:
                 break
-            await _asyncio.sleep(APPLE_RETRY_DELAY * (attempt + 1))
+            await _asyncio.sleep(APPLE_EMPTY_DELAY)
         else:
             # Within one page of the total, an empty page is the real end of
             # a board that shrank mid-sweep, not a failure.
             if total and len(seen) >= total - APPLE_PAGE_SIZE:
                 break
             raise RuntimeError(f"apple: page {page} came back empty "
-                               f"{APPLE_RETRIES} times with {len(seen)} of "
+                               f"{APPLE_EMPTY_RETRIES} times with {len(seen)} of "
                                f"{total or '?'} postings read")
         if total is None:
             total = int(search.get("totalRecords") or 0)
+            _board_total(row, total)
         for j in results:
             jid = str(j.get("id") or j.get("jobPositionId") or "")
             if not jid or jid in seen:
@@ -1506,7 +1515,6 @@ async def apple(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> list
             # One evergreen retail req, id "PIPE-114438158", is stamped with
             # the render time on every request, so it would look brand new on
             # every scan. Its ids carry a "PIPE-" prefix; real requisitions
-            _board_total(row, total)
             # are "<positionId>-<site code>". Trust no date for the former.
             if jid.startswith("PIPE-"):
                 posted, src = None, ""
@@ -1776,6 +1784,7 @@ async def _sf_classic(c: httpx.AsyncClient, company: str, host: str,
             m = SF_CLASSIC_TOTAL.search(r.text)
             if m:
                 total = int(re.sub(r"\D", "", m.group(1) or m.group(2)))
+                _board_total(row, total)
             elif "searchresultsunify" in r.text.lower():
                 # A unify site serves this page with no rows in it, which
                 # would otherwise read as an empty board.
@@ -1784,7 +1793,6 @@ async def _sf_classic(c: httpx.AsyncClient, company: str, host: str,
         for j in rows:
             if j.raw_id not in seen:
                 seen.add(j.raw_id)
-                _board_total(row, total)
                 out.append(j)
         # startrow is an offset, so advance by what the page actually held
         # rather than assuming the theme's page size.
@@ -1824,6 +1832,7 @@ async def _sf_unify(c: httpx.AsyncClient, company: str, host: str,
                 raise ValueError(str(d["error"])[:120])
             if total is None:
                 total = d.get("totalJobs") or 0
+                _board_total(row, total)
             results = d.get("jobSearchResult") or []
             for item in results:
                 j = item.get("response") or {}
@@ -1832,7 +1841,6 @@ async def _sf_unify(c: httpx.AsyncClient, company: str, host: str,
                     continue
                 seen.add(rid)
                 out.append(_sf_unify_job(j, company, host, locale, rid))
-                _board_total(row, total)
             if len(seen) >= total:
                 return out
             if not results:
@@ -2183,6 +2191,7 @@ async def avature(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> li
         if total is None:
             m = _AVATURE_TOTAL.search(r.text)
             total = int(re.sub(r"\D", "", m.group(1))) if m else 0
+            _board_total(row, total)
         cards = _avature_cards(r.text)
         fresh = 0
         for card in cards:
@@ -2191,7 +2200,6 @@ async def avature(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> li
             seen.add(card["id"])
             fresh += 1
             out.append(Job(
-            _board_total(row, total)
                 company=company,
                 title=card["title"],
                 url=card["url"],

@@ -23,6 +23,7 @@ from jobscan.runner import is_us_location
 def _no_sleep(monkeypatch):
     monkeypatch.setattr(adapters, "APPLE_PAGE_DELAY", 0)
     monkeypatch.setattr(adapters, "APPLE_RETRY_DELAY", 0)
+    monkeypatch.setattr(adapters, "APPLE_EMPTY_DELAY", 0)
 
 
 def _job(jid: str, **over) -> dict:
@@ -227,3 +228,14 @@ async def test_an_empty_page_within_a_page_of_the_total_is_the_end():
     async with client:
         jobs = await apple(client, "Apple", {})
     assert len(jobs) == 40
+
+
+async def test_survives_the_measured_rate_of_empty_pages():
+    # 2026-10-12: 15% of responses were empty, in runs of up to 2. Every
+    # page here fails twice before answering, which three tries a page
+    # (the first version of the retry) survives only by luck over 220 pages.
+    pages = {p: [_job(i) for i in _ids((p - 1) * 20)] for p in range(1, 11)}
+    client, _ = _flaky(pages, total=200, empty={p: 4 for p in range(1, 11)})
+    async with client:
+        jobs = await apple(client, "Apple", {})
+    assert len(jobs) == 200
