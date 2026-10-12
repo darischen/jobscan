@@ -1698,9 +1698,177 @@ async def atlassian(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> 
     return out
 
 
+# ------------------------------------------------------------------- shopify
+# Shopify hires through Ashby but publishes no Ashby job board (the posting
+# API and the hosted-board GraphQL both answer null for every slug tried).
+# Its own careers page is a React Router app whose /careers route loader
+# returns every published, listed posting. The single-fetch endpoint
+# https://www.shopify.com/careers.data serves that loader data as a
+# turbo-stream: one flat JSON array where objects are {"_<key index>":
+# <value index>} and negative numbers encode null / undefined / NaN.
+#
+# Measured 2026-10-12: 114 postings (72 requisitions), all Published and
+# listed, 114 unique ids. The discipline pages are strict subsets of it
+# (engineering-data 49 = Engineering 44 + Data Insights 5, commercial 32).
+# There is no total field anywhere to compare against.
+#
+# The loader also embeds the Ashby `job` record next to each posting,
+# including the hiring team. Only posting fields and the public Discipline
+# custom field are read here.
+_TS_SPECIAL = {-1: None, -2: None, -3: None, -4: 0, -5: None, -6: None, -7: None}
+
+
+def _turbo_decode(values: list) -> Any:
+    """Inflate a React Router turbo-stream payload (the first line)."""
+    memo: dict[int, Any] = {}
+
+    def h(i: Any) -> Any:
+        if not isinstance(i, int) or isinstance(i, bool):
+            return i
+        if i < 0:
+            return _TS_SPECIAL.get(i)
+        if i in memo:
+            return memo[i]
+        v = values[i]
+        if isinstance(v, dict):
+            obj: dict[str, Any] = {}
+            memo[i] = obj
+            for k, vi in v.items():
+                key = values[int(k[1:])] if k.startswith("_") and k[1:].isdigit() else k
+                obj[str(key)] = h(vi)
+            return obj
+        if isinstance(v, list):
+            if v and isinstance(v[0], str):   # typed value (date, promise, ...)
+                memo[i] = v
+                return v
+            arr: list[Any] = []
+            memo[i] = arr
+            arr.extend(h(x) for x in v)
+            return arr
+        memo[i] = v
+        return v
+
+    return h(0)
+
+
+def _find_key(obj: Any, key: str, depth: int = 0) -> Any:
+    if depth > 6:
+        return None
+    if isinstance(obj, dict):
+        if key in obj:
+            return obj[key]
+        for v in obj.values():
+            found = _find_key(v, key, depth + 1)
+            if found is not None:
+                return found
+    return None
+
+
+def _shopify_place(loc: dict[str, Any]) -> str:
+    addr = (loc.get("address") or {}).get("postalAddress") or {}
+    city = (addr.get("addressLocality") or "").strip()
+    if city:
+        parts = [city, (addr.get("addressRegion") or "").strip(),
+                 (addr.get("addressCountry") or "").strip()]
+        return ", ".join(p for p in parts if p)
+    return _ATL_SPACES.sub(" ", loc.get("externalName") or loc.get("name") or "").strip()
+
+
+def _shopify_places(locs: list) -> dict[str, str]:
+    """Map location id -> display string.
+
+    81 of 114 postings sit on the bare region "Americas", which names no
+    country and so fails the US-location gate. The board's own hierarchy
+    says what a region covers: its child locations (Provo, Dallas, New York
+    City, Toronto, ...) hang off a hierarchy node of the same name. A region
+    with children is shown with their countries, "Americas (United States,
+    Canada)", taken from the board rather than assumed.
+    """
+    locs = [x for x in locs if isinstance(x, dict) and x.get("id")]
+    node_name = {x["id"]: (x.get("name") or "").strip() for x in locs}
+    covers: dict[str, list[str]] = {}
+    for x in locs:
+        parent = node_name.get(x.get("parentLocationId") or "")
+        country = (((x.get("address") or {}).get("postalAddress") or {})
+                   .get("addressCountry") or "").strip()
+        if parent and country and country != parent:
+            covers.setdefault(parent, [])
+            if country not in covers[parent]:
+                covers[parent].append(country)
+    out: dict[str, str] = {}
+    for x in locs:
+        if x.get("type") == "LocationHierarchy":
+            continue
+        place = _shopify_place(x)
+        addr = (x.get("address") or {}).get("postalAddress") or {}
+        if not addr.get("addressLocality") and covers.get(place):
+            place = f"{place} ({', '.join(covers[place])})"
+        out[x["id"]] = place
+    return out
+
+
+def _shopify_location(post: dict[str, Any], places: dict[str, str]) -> str:
+    ids = post.get("locationIds") or {}
+    names: list[str] = []
+    for lid in [ids.get("primaryLocationId"), *(ids.get("secondaryLocationIds") or [])]:
+        n = places.get(lid or "", "")
+        if n and n not in names:
+            names.append(n)
+    if not names and post.get("locationName"):
+        names = [_ATL_SPACES.sub(" ", post["locationName"]).strip()]
+    if post.get("workplaceType") == "Remote":
+        names = [f"Remote - {n}" for n in names] or ["Remote"]
+    return "; ".join(names)
+
+
+async def shopify(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> list[Job]:
+    host = row.get("host") or "www.shopify.com"
+    r = await c.get(f"https://{host}/careers.data", headers={
+        **HEADERS, "Referer": f"https://{host}/careers"})
+    r.raise_for_status()
+    first = r.text.split("\n", 1)[0]
+    data = _turbo_decode(json.loads(first))
+    postings = _find_key(data, "jobPostingsWithJobs")
+    if not isinstance(postings, list):
+        raise ValueError("shopify: no jobPostingsWithJobs in the careers loader data")
+    places = _shopify_places(_find_key(data, "atsLocations") or [])
+    out: list[Job] = []
+    seen: set[str] = set()
+    for item in postings:
+        p = (item or {}).get("jobPosting") or {}
+        pid = str(p.get("id") or "")
+        if not pid or pid in seen:
+            continue
+        if p.get("isListed") is False or p.get("status") not in (None, "Published"):
+            continue
+        seen.add(pid)
+        discipline = next((f.get("valueLabel") or f.get("value")
+                           for f in ((item.get("job") or {}).get("customFields") or [])
+                           if isinstance(f, dict) and f.get("title") == "Discipline"
+                           and not f.get("isPrivate")), None)
+        posted, src = dates.pick(
+            ("publishedDate", dates.from_iso(p.get("publishedDate"))),
+            ("updatedAt", dates.from_iso(p.get("updatedAt"))),
+        )
+        out.append(Job(
+            company=company,
+            title=(p.get("title") or "").strip(),
+            # redirects to /careers/{slug}_{id}
+            url=p.get("externalLink") or f"https://{host}/careers?ashby_jid={pid}",
+            location=_shopify_location(p, places),
+            ats="shopify",
+            posted_at=posted,
+            posted_source=src,
+            raw_id=pid,
+            department=str(discipline or p.get("teamName") or ""),
+        ))
+    return out
+
+
 TIER_A = {
     "amazon": amazon,
     "atlassian": atlassian,
+    "shopify": shopify,
     "apple": apple,
     "meta": meta,
     "eightfold": eightfold,

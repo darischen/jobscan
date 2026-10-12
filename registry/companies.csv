@@ -88,7 +88,7 @@ Samsung,,workday,,sec,Samsung_Careers,wd3,,https://sec.wd3.myworkdayjobs.com/Sam
 SAP,SAP,successfactors,,,,,careers.sap.com,https://careers.sap.com/search/,,"confirmed 788 jobs (2026-10-01); career5.successfactors.eu redirects here. Listing shows no date column, so posted_at is empty. New postings are moving to SmartRecruiters, see the second SAP row"
 SAP,SAP,smartrecruiters,SAPITBusinessSysteme,,,,,https://jobs.sap.com/en/jobs/,,"confirmed 43 jobs (2026-10-01); jobs.sap.com is SAP's new SmartRecruiters board. all posted 2026-09 or later, only 1 title also on careers.sap.com"
 ServiceNow,NOW,smartrecruiters,servicenow,,,,,https://careers.servicenow.com/jobs,,probed  confirmed 444 jobs
-Shopify,SHOP,custom,,,,,www.shopify.com,https://www.shopify.com/careers/,,
+Shopify,SHOP,shopify,,,,,www.shopify.com,https://www.shopify.com/careers/,,"2026-10-12: Ashby ATS (ashby_jid links) with no public Ashby board; the posting API and hosted-board GraphQL return null for every slug tried. The /careers React Router loader (www.shopify.com/careers.data, turbo-stream) carries every published listed posting: 114, 72 requisitions, no total field. Discipline pages are subsets (engineering-data 49, commercial 32)"
 SK Hynix,,greenhouse,skhynixamerica,,,,,https://job-boards.greenhouse.io/skhynixamerica,,
 Snapchat,,workday,,snapchat,snap,wd1,,https://wd1.myworkdaysite.com/recruiting/snapchat/snap,,
 Snowflake,SNOW,ashby,snowflake,,,,,https://careers.snowflake.com/us/en,,confirmed 403 jobs via auto-probe

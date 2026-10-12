@@ -76,11 +76,17 @@ postings and 1,813 early-career hits; the Google fix recovered ~2,700 more.
       entries, 329 unique, equal to the "329 RESULTS" the all-jobs page
       renders. verify.py ok: 329 jobs, 11 early-career hits, 100% dated
       (updatedDate, a last-updated date), 3/3 links live.
-- [ ] **Shopify, DigitalOcean**: one manual look before assuming a browser;
+- [x] **Shopify, DigitalOcean**: one manual look before assuming a browser;
       `discover.py` misses board tokens unrelated to the company name.
       DigitalOcean done 2026-10-12: greenhouse `digitalocean98`, 189 postings
       = board meta.total = unique gh_jid links on the page, 2 early-career
       hits, 100% dated, verify.py ok.
+      Shopify done 2026-10-12: Ashby ATS with no public Ashby board, so a
+      `shopify` adapter reads the /careers React Router loader
+      (`careers.data`, turbo-stream): 114 published listed postings, no
+      total field; discipline pages are subsets of it. 7 early-career hits,
+      100% dated, verify.py ok. The loader also ships each requisition's
+      hiring team (names, emails); the adapter ignores it.
 - [ ] **Broadcom, Electronic Arts, Fidelity, Morgan Stanley**: unidentified.
 - [ ] **Tesla**: browser only (see section 3).
 - [ ] **Meta**: owner decision (see section 3).
