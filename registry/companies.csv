@@ -39,7 +39,7 @@ Dropbox,DBX,greenhouse,dropbox,,,,,https://www.dropbox.jobs/en/jobs/,,confirmed 
 Elastic,,greenhouse,elastic,,,,,https://jobs.elastic.co/,,
 Electronic Arts,EA,custom,,,,,www.ea.com,https://www.ea.com/careers,,tier B
 Epic Games,,greenhouse,epicgames,,,,,https://www.epicgames.com/site/careers/jobs,,confirmed 137 jobs
-Fidelity,FIS,custom,,,,,jobs.fidelity.com,https://jobs.fidelity.com,,tier B
+Fidelity,FIS,workday,,fmr,FidelityCareers,wd1,wd1.myworkdaysite.com,https://jobs.fidelity.com,,"Fidelity Investments (FMR). jobs.fidelity.com is a front end whose job pages apply via wd1.myworkdaysite.com/recruiting/fmr/FidelityCareers; read Workday directly. 2026-10-12: Workday 795, jobs.fidelity.com/en/jobs about 751, 38 pages (US site; /ie/ and /in/ list the rest). Ticker FIS is Fidelity National Information Services, a different company (fis.wd5 SearchJobs, 545 on 2026-10-12)"
 Figma,FIG,greenhouse,figma,,,,,https://www.figma.com/careers/,,
 Ford,F,oracle,,,CX_1,,efds.fa.em5.oraclecloud.com,https://apply.ford.com/en/sites/CX_1/jobs,,confirmed 845 jobs; needed OS trust store
 Genentech,DNA,workday,,roche,ROG-A2O-GENE,wd3,,https://careers.gene.com/us/en/search-results,,confirmed 232 jobs
