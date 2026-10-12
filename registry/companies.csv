@@ -65,7 +65,7 @@ Meta,META,custom,,,,,www.metacareers.com,https://www.metacareers.com/jobsearch/,
 Micron,MU,workday,,micron,External,wd1,,https://micron.wd1.myworkdayjobs.com/External,,
 Microsoft,MSFT,custom,,,,,apply.careers.microsoft.com,https://apply.careers.microsoft.com/careers,,"not SuccessFactors: apply.careers.microsoft.com is an eightfold PCSX site. /api/apply/v2/jobs returns 403 'Not authorized for PCSX', but /api/pcsx/search?domain=microsoft.com&start=N returns 10 positions a page with count=2352 once the /careers page cookies are held (cookieless: 429). Needs a pcsx mode in the eightfold adapter (2026-10-01)"
 Moderna,MRNA,workday,,modernatx,M_tx,wd1,,https://modernatx.wd1.myworkdayjobs.com/M_tx,,confirmed 189 jobs
-Morgan Stanley,MS,custom,,,,,www.morganstanley.com,https://www.morganstanley.com/careers,,tier B
+Morgan Stanley,MS,custom,,,,,morganstanley.eightfold.ai,https://morganstanley.eightfold.ai/careers,morganstanley.com,"eightfold PCSX site: morganstanley.com/careers/career-opportunities-search links to morganstanley.eightfold.ai/careers. /api/apply/v2/jobs returns 403 Not authorized for PCSX (with or without domain); /api/pcsx/search?domain=morganstanley.com&start=0 returns 200 with count=1285, 10 positions a page (answered even without cookies). Promote as ats=eightfold, site=pcsx once the eightfold pcsx mode lands (2026-10-12)"
 NBA,,workday,,nba,nbacareers,wd108,,https://careers.nba.com/c/technology-jobs,,confirmed 45 jobs
 Netflix,NFLX,eightfold,,,,,explore.jobs.netflix.net,https://explore.jobs.netflix.net/careers,,confirmed 476 jobs via eightfold PCSX api
 Notion,,ashby,notion,,,,,https://jobs.ashbyhq.com/notion,,confirmed 116 jobs
