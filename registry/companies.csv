@@ -31,7 +31,7 @@ Databricks,,greenhouse,databricks,,,,,https://www.databricks.com/company/careers
 Datadog,DDOG,greenhouse,datadog,,,,,https://careers.datadoghq.com/,,auto-discovered from name
 DeepMind,,google,DeepMind,,,,,https://www.google.com/about/careers/applications/jobs/results?company=DeepMind,,Google board filtered to company=DeepMind; only DeepMind board since greenhouse deepmind was taken down (404 as of 2026-09-25)
 Dell,DELL,oracle,,,CX_2,,iawmqy.fa.ocs.oraclecloud.com,https://jobs.dell.com/,,
-DigitalOcean,,custom,,,,,www.digitalocean.com,https://www.digitalocean.com/careers/,,tier B - Greenhouse-styled UI
+DigitalOcean,DOCN,greenhouse,digitalocean98,,,,www.digitalocean.com,https://www.digitalocean.com/careers/,,"2026-10-12: careers page loads api.greenhouse.io/v1/boards/digitalocean98 client-side (token unrelated to the name, so discover.py missed it). Board meta.total 189 = 189 unique gh_jid links on the rendered page; the page's ""106 roles"" counts distinct titles"
 Discord,,greenhouse,discord,,,,,https://job-boards.greenhouse.io/discord,,
 Disney,DIS,workday,,disney,disneycareer,wd5,,https://disney.wd5.myworkdayjobs.com/en-US/disneycareer/,,confirmed 664 jobs
 DoorDash,DASH,greenhouse,doordashusa,,,,,https://careers.doordash.com/,,token is doordashusa not doordash
