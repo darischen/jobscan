@@ -87,3 +87,41 @@ async def test_a_board_under_the_cap_is_not_sliced():
         jobs = await workday(client, "Acme", ROW)
     assert len(jobs) == 45
     assert all(not (b.get("appliedFacets") or {}) for b in asked)
+
+
+def _uncapped(n: int):
+    """A large board that reports its true total and pages cleanly to the end,
+    as Lowe's does (12,603 on 2026-10-12)."""
+    asked: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        asked.append(body)
+        off, lim = body["offset"], body["limit"]
+        return httpx.Response(200, json={
+            "total": n if off == 0 else 0,
+            "jobPostings": [_posting(i) for i in range(off, min(off + lim, n))],
+            "facets": [{"facetParameter": "locations", "descriptor": "Sites",
+                        "values": [{"id": f"s{k}", "descriptor": f"s{k}", "count": n // 50}
+                                   for k in range(50)]}] if off == 0 else []})
+
+    return httpx.AsyncClient(transport=httpx.MockTransport(handler)), asked
+
+
+async def test_a_large_board_reporting_its_true_total_is_paged_not_sliced():
+    # total > 2,000 is a real count; only exactly 2,000 is the cap. Slicing
+    # Lowe's by its 1,855 locations cost ~1,900 requests to read a board that
+    # pages cleanly in 631.
+    client, asked = _uncapped(12603)
+    async with client:
+        jobs = await workday(client, "Acme", ROW)
+    assert len(jobs) == 12603
+    assert all(not (b.get("appliedFacets") or {}) for b in asked)
+
+
+async def test_paging_is_not_cut_off_at_an_arbitrary_offset():
+    # The loop used to stop past offset 5,000, so Lowe's read as 5,020.
+    client, _ = _uncapped(7000)
+    async with client:
+        jobs = await workday(client, "Acme", ROW)
+    assert len(jobs) == 7000

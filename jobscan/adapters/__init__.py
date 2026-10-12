@@ -466,8 +466,16 @@ async def workday(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> li
 # the slices merged on externalPath. Accenture's registry note asked for query
 # rows to do this by hand; facets need no upkeep and cannot miss a posting
 # whose title matches no keyword.
+#
+# The cap is per tenant and shows as a total of exactly 2,000. A total above
+# it is a real count: Lowe's reports 12,603 and pages cleanly to the end with
+# no repeats. Slicing it instead (by its 1,855 locations) cost ~1,900
+# requests where paging costs 631, and the old `offset > 5000` stop had read
+# it as 5,020 for months.
 WORKDAY_CAP = 2000
 WORKDAY_PAGE = 20
+WORKDAY_MAX_OFFSET = 100_000   # last-resort bound; the total and a page with
+                               # nothing new stop the loop long before this
 
 
 async def _workday_sweep(c: httpx.AsyncClient, url: str, query: str,
@@ -495,7 +503,7 @@ async def _workday_sweep(c: httpx.AsyncClient, url: str, query: str,
         if total is None:
             total = d.get("total") or 0
             facets = d.get("facets") or []
-            if total >= WORKDAY_CAP and depth < 2:
+            if total == WORKDAY_CAP and depth < 2:
                 plan = _workday_slices(facets, applied)
                 if plan:
                     param, values = plan
@@ -503,15 +511,20 @@ async def _workday_sweep(c: httpx.AsyncClient, url: str, query: str,
                         found.update(await _workday_sweep(
                             c, url, query, {**applied, param: [v]}, depth + 1))
                     return found
+        fresh = 0
         for j in posts:
             path = j.get("externalPath", "")
             if not path or not (j.get("title") or "").strip():
                 continue  # Workday occasionally emits a titleless or pathless stub
-            found.setdefault(path, j)
+            if path not in found:
+                found[path] = j
+                fresh += 1
         offset += WORKDAY_PAGE
         # offset >= total also stops a still-capped slice at the cap rather
-        # than letting it page on through repeats.
-        if len(posts) < WORKDAY_PAGE or offset >= total or offset > 5000:
+        # than letting it page on through repeats. A full page with nothing
+        # new means the board is replaying itself.
+        if (len(posts) < WORKDAY_PAGE or offset >= total
+                or (posts and not fresh) or offset > WORKDAY_MAX_OFFSET):
             return found
 
 
