@@ -174,3 +174,56 @@ async def test_site_overrides_the_location_slug():
     async with client:
         await apple(client, "Apple", {"site": "canada-CANC"})
     assert asked[0]["location"] == "canada-CANC"
+
+
+def _flaky(pages: dict[int, list[dict]], total: int, empty: dict[int, int]):
+    """A board where some pages first come back with no search data at all
+    (totalRecords 0, no results), as jobs.apple.com did on 2026-10-12."""
+    asked: list[int] = []
+    empty = dict(empty)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        n = int(request.url.params["page"])
+        asked.append(n)
+        if empty.get(n):
+            empty[n] -= 1
+            return httpx.Response(200, text=_page([], 0))
+        return httpx.Response(200, text=_page(pages.get(n, []), total))
+
+    return httpx.AsyncClient(transport=httpx.MockTransport(handler)), asked
+
+
+async def test_an_empty_first_page_is_retried_not_read_as_no_jobs():
+    pages = {p: [_job(i) for i in _ids((p - 1) * 20)] for p in (1, 2, 3)}
+    client, asked = _flaky(pages, total=60, empty={1: 1})
+    async with client:
+        jobs = await apple(client, "Apple", {})
+    assert len(jobs) == 60
+    assert asked[:2] == [1, 1]
+
+
+async def test_an_empty_page_mid_board_is_retried_not_read_as_the_end():
+    # The live failure: page 1 fine, page 2 empty, the scan stopped at 20.
+    pages = {p: [_job(i) for i in _ids((p - 1) * 20)] for p in (1, 2, 3)}
+    client, _ = _flaky(pages, total=60, empty={2: 2})
+    async with client:
+        jobs = await apple(client, "Apple", {})
+    assert len(jobs) == 60
+
+
+async def test_a_page_that_stays_empty_raises_rather_than_returning_a_partial_board():
+    pages = {p: [_job(i) for i in _ids((p - 1) * 20)] for p in (1, 2, 3)}
+    client, _ = _flaky(pages, total=60, empty={2: 99})
+    async with client:
+        with pytest.raises(RuntimeError):
+            await apple(client, "Apple", {})
+
+
+async def test_an_empty_page_within_a_page_of_the_total_is_the_end():
+    # Postings withdrawn mid-sweep: the total read on page 1 says 45, the
+    # board now holds 40 in two full pages, and page 3 is genuinely empty.
+    pages = {p: [_job(i) for i in _ids((p - 1) * 20)] for p in (1, 2)}
+    client, _ = _flaky(pages, total=45, empty={})
+    async with client:
+        jobs = await apple(client, "Apple", {})
+    assert len(jobs) == 40

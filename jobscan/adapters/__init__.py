@@ -1383,13 +1383,32 @@ async def apple(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> list
     for page in range(1, APPLE_MAX_PAGES):
         if page > 1:
             await _asyncio.sleep(APPLE_PAGE_DELAY)
-        r = await _apple_get(c, base, {"location": where, "sort": "newest",
-                                       "page": page,
-                                       **({"search": query} if query else {})})
-        search = _apple_search(r.text)
+        # Some responses carry no search data at all: totalRecords 0 and no
+        # results, then the same URL is fine a moment later. On 2026-10-12
+        # one landed on page 2 and the scan read 20 of 4,395 as the whole
+        # board. A page cannot legitimately be empty before the total is
+        # reached (a real last page is short and ends the loop first), so an
+        # empty one is retried, and one that stays empty raises rather than
+        # returning a partial board.
+        for attempt in range(APPLE_RETRIES):
+            r = await _apple_get(c, base, {"location": where, "sort": "newest",
+                                           "page": page,
+                                           **({"search": query} if query else {})})
+            search = _apple_search(r.text)
+            results = search.get("searchResults") or []
+            if results:
+                break
+            await _asyncio.sleep(APPLE_RETRY_DELAY * (attempt + 1))
+        else:
+            # Within one page of the total, an empty page is the real end of
+            # a board that shrank mid-sweep, not a failure.
+            if total and len(seen) >= total - APPLE_PAGE_SIZE:
+                break
+            raise RuntimeError(f"apple: page {page} came back empty "
+                               f"{APPLE_RETRIES} times with {len(seen)} of "
+                               f"{total or '?'} postings read")
         if total is None:
             total = int(search.get("totalRecords") or 0)
-        results = search.get("searchResults") or []
         for j in results:
             jid = str(j.get("id") or j.get("jobPositionId") or "")
             if not jid or jid in seen:
