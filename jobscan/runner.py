@@ -104,6 +104,12 @@ _US_NAME_RE = _boundary(US_NAMES, re.I)      # case-insensitive: unambiguous
 _US_CODE_RE = _boundary(US_CODES)            # case-SENSITIVE: uppercase only
 _FOREIGN_RE = _boundary(FOREIGN, re.I)
 
+# Foreign places whose names contain a US state name, so the "no foreign
+# place contains one" assumption above has exceptions. Masked out before any
+# US match. Qualcomm's 71 "Tijuana, Baja California, Mexico" postings were
+# reading as California on 2026-10-12.
+_US_HOMONYMS_RE = _boundary(("BAJA CALIFORNIA", "BAJA CALIFORNIA SUR"), re.I)
+
 
 # Vocabulary a board uses when it is describing an arrangement rather than
 # naming a place. Whatever survives removing these is a real geographic name,
@@ -142,6 +148,7 @@ def _names_us(loc: str) -> bool:
     still wins alongside a foreign country, because "Dublin, Ireland; Austin,
     TX" is a real multi-location req that a US applicant can take.
     """
+    loc = _US_HOMONYMS_RE.sub(" ", loc)
     if _US_NAME_RE.search(loc):
         return True
     codes = {m.group(0) for m in _US_CODE_RE.finditer(loc)}
