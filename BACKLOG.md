@@ -174,10 +174,22 @@ JPMorgan 5,100 -> 7,301). A full `verify.py` on an unfiltered network:
 - [ ] **Apple serves empty search pages** ~15% of the time (2026-10-12). The
       adapter retries 8 times a page; if the rate climbs, a sweep will start
       failing loudly rather than returning a partial board.
-- [ ] **`discover.py` markers**: recognise Radancy TalentBrew (`tbcdn`,
-      `talentbrew`), careers-home iCIMS and Kula; it still sends taleo /
-      avature / phenom sites to tier B though all three proved to be
-      fronts for other boards.
+- [x] **`discover.py` markers**: given a careers URL it now detects and
+      confirms, through the real adapter, Radancy TalentBrew (`tbcdn`,
+      `talentbrew`), careers-home iCIMS (`careers-home`, `jibecdn`),
+      SuccessFactors classic and `site=unify`, Avature (`avacdn.net`,
+      `avature.portal` metas, portal path into `site`), Kula, and eightfold
+      plain or `site=pcsx` with the page's own `domain` in `query`. Front
+      ends are followed one hop (at most 3 pages) to a Workday or other
+      confirmable board, including `myworkdaysite.com` links; taleo / phenom
+      stay tier B only when nothing confirms. Unconfirmed icims /
+      successfactors / avature / eightfold markers, classic `*.icims.com`
+      portals among them, are written as `custom`, not under a tier A name.
+      2026-10-12: 17 of 17 registry boards rediscovered with the registry's
+      own ats and config (Intuit, UHG, Schwab, AMD, Panasonic, GitHub, SAP,
+      Supermicro, Altria, EA, 10x Genomics, Microsoft, PayPal, Qualcomm,
+      Morgan Stanley, Netflix, Cisco). Confirmation is a full adapter sweep,
+      so the large PCSX tenants take 3 to 5 minutes each.
 
 ## 7. Unbuilt features
 
