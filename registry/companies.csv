@@ -2,7 +2,7 @@ company,ticker,ats,token,tenant,site,wd,host,careers_url,query,notes
 10x Genomics,,kula,10xgenomics,,,,careers.kula.ai,https://careers.kula.ai/10xgenomics,,"moved from greenhouse to Kula by 2026-09; kula adapter on /api/internal/ats_job_posts, 34 postings 2026-10-01"
 3M,MMM,workday,,3m,Search,wd1,,https://3m.wd1.myworkdayjobs.com/en-US/Search,,
 AbbVie,,smartrecruiters,abbvie,,,,,https://careers.smartrecruiters.com/abbvie,,confirmed 1653 jobs
-Accenture,ACN,workday,,accenture,AccentureCareers,wd103,,https://www.accenture.com/us-en/careers/jobsearch,,"board is at the Workday 2000 total cap, add query rows to slice it"
+Accenture,ACN,workday,locationCountry=United States of America,accenture,AccentureCareers,wd103,,https://www.accenture.com/us-en/careers/jobsearch,,"token filters to the US facet server side. 2026-10-12: board ~42,100 postings (India 35,633, US 750) behind Workday's 2,000 cap; unfiltered it needs ~2,100 requests to keep 750"
 Activision Blizzard,ATVI,workday,,xboxgaming,External,wd1,,https://careers.activisionblizzard.com/search-results,,confirmed 55 jobs
 Adobe,ADBE,workday,,adobe,external_experienced,wd5,,https://adobe.wd5.myworkdayjobs.com/external_experienced,,
 AES Corporation,,workday,,aes,AES_US,wd1,,https://aes.wd1.myworkdayjobs.com/AES_US,,confirmed 108 jobs

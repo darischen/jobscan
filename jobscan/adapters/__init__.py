@@ -436,7 +436,8 @@ async def workday(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> li
         base = f"https://{tenant}.{wd}.myworkdayjobs.com"
         public = f"{base}/{site}"
     url = f"{base}/wday/cxs/{tenant}/{site}/jobs"
-    found = await _workday_sweep(c, url, row.get("query", ""), {}, depth=0)
+    applied = await _workday_filter(c, url, row.get("token", ""))
+    found = await _workday_sweep(c, url, row.get("query", ""), applied, depth=0)
     out: list[Job] = []
     paths: list[str] = []   # parallel to `out`, for the raw_id repair below
     for path, j in found.items():
@@ -526,6 +527,37 @@ async def _workday_sweep(c: httpx.AsyncClient, url: str, query: str,
         if (len(posts) < WORKDAY_PAGE or offset >= total
                 or (posts and not fresh) or offset > WORKDAY_MAX_OFFSET):
             return found
+
+
+async def _workday_filter(c: httpx.AsyncClient, url: str,
+                          spec: str) -> dict[str, list[str]]:
+    """Resolve a row's optional `token` facet filter to appliedFacets.
+
+    `token` is unused by workday rows, so it carries "<facet>=<value name>",
+    e.g. "locationCountry=United States of America". Facet value ids are
+    opaque per tenant, so the value is matched on its display name. Accenture
+    (2026-10-12) holds ~42,100 postings, 35,633 of them in India and 750 in
+    the US; the runner keeps only US postings, so sweeping the rest is ~2,100
+    requests spent on rows it throws away. Same idea as the google adapter's
+    opt-in location filter. An unmatched name raises: silently dropping the
+    filter would return the whole board under a row that promises a slice.
+    """
+    if not spec:
+        return {}
+    param, _, name = spec.partition("=")
+    if not param or not name:
+        raise ValueError(f"workday token filter must be facet=value, got {spec!r}")
+    r = await c.post(url, headers={**HEADERS, "Content-Type": "application/json"},
+                     json={"appliedFacets": {}, "limit": WORKDAY_PAGE, "offset": 0,
+                           "searchText": ""})
+    r.raise_for_status()
+    for f in _workday_facets(r.json().get("facets") or []):
+        if f["facetParameter"] != param:
+            continue
+        for v in f["values"]:
+            if (v.get("descriptor") or "").strip().lower() == name.strip().lower():
+                return {param: [v["id"]]}
+    raise ValueError(f"workday facet filter {spec!r}: no {param} value named {name!r}")
 
 
 def _workday_facets(facets: list[dict[str, Any]]) -> list[dict[str, Any]]:

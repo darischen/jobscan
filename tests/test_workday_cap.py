@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 
 import httpx
+import pytest
 
 from jobscan.adapters import WORKDAY_CAP, workday
 
@@ -125,3 +126,42 @@ async def test_paging_is_not_cut_off_at_an_arbitrary_offset():
     async with client:
         jobs = await workday(client, "Acme", ROW)
     assert len(jobs) == 7000
+
+
+def _countries():
+    """A board whose facets carry locationCountry with opaque ids, as
+    Accenture's does: India 35,633, United States 750, ... (2026-10-12)."""
+    asked: list[dict] = []
+    us = range(0, 75)
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        asked.append(body)
+        applied = body.get("appliedFacets") or {}
+        ids = list(us) if applied.get("locationCountry") == ["bc33"] else list(range(0, 2000))
+        off, lim = body["offset"], body["limit"]
+        return httpx.Response(200, json={
+            "total": len(ids) if off == 0 else 0,
+            "jobPostings": [_posting(i) for i in ids[off:off + lim]],
+            "facets": [{"facetParameter": "locationMainGroup", "values": [
+                {"facetParameter": "locationCountry", "descriptor": "Country",
+                 "values": [{"id": "c4f7", "descriptor": "India", "count": 1925},
+                            {"id": "bc33", "descriptor": "United States of America",
+                             "count": 75}]}]}] if off == 0 else []})
+    return httpx.AsyncClient(transport=httpx.MockTransport(handler)), asked
+
+
+async def test_token_restricts_the_board_to_one_facet_value_by_name():
+    client, asked = _countries()
+    row = {**ROW, "token": "locationCountry=United States of America"}
+    async with client:
+        jobs = await workday(client, "Acme", row)
+    assert len(jobs) == 75
+    assert asked[-1]["appliedFacets"] == {"locationCountry": ["bc33"]}
+
+
+async def test_an_unknown_facet_filter_fails_loudly():
+    client, _ = _countries()
+    row = {**ROW, "token": "locationCountry=Atlantis"}
+    async with client:
+        with pytest.raises(ValueError, match="Atlantis"):
+            await workday(client, "Acme", row)
