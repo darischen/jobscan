@@ -4,7 +4,10 @@
 Three ways in, from most to least information:
 
   1. Name plus careers URL. Fetches the page, reads redirects and DOM for
-     board markers, then confirms the candidate against the live API.
+     board markers, then confirms the candidate against the live API. A
+     branded front end (Phenom, Taleo, Avature skins) is followed one hop
+     to its listing or apply links, so the board behind it is what gets
+     confirmed.
 
   2. Name plus an ATS hint, no URL. Generates slug candidates from the
      name and probes the ATS directly.
@@ -56,11 +59,64 @@ WORKDAY = re.compile(
 ORACLE = re.compile(
     r"https?://([a-z0-9.-]*oraclecloud\.com)/hcmUI/CandidateExperience/"
     r"[^/]+/sites/([A-Za-z0-9_-]+)", re.I)
-TIER_B_HINTS = {
+# Shared-cluster Workday tenants: the tenant sits in the path, not the
+# subdomain (Wells Fargo, Fidelity). The adapter selects this shape by `host`.
+WORKDAY_SITE = re.compile(
+    r"https?://((wd\d+)\.myworkdaysite\.com)/(?:[a-z]{2}-[A-Z]{2}/)?"
+    r"recruiting/([a-z0-9_-]+)/([A-Za-z0-9_-]+)", re.I)
+
+# ---- site-hosted families ------------------------------------------------
+# These boards are served from the company's own careers host, so the row is
+# `host` (plus `site` / `query` for some) rather than a token. A marker only
+# nominates a candidate; site_candidates() never decides anything.
+KULA = re.compile(r"careers\.kula\.ai/([A-Za-z0-9][A-Za-z0-9_-]+)", re.I)
+KULA_SKIP = {"api", "_next", "assets", "static", "images", "fonts"}
+RADANCY_MARKS = ("tbcdn.talentbrew.com", "talentbrew", "tbcdn")
+RADANCY_WEAK = re.compile(r"""["'/]search-jobs(?:["'/?]|$)""", re.I | re.M)
+# careers-home is the Jibe front end iCIMS bought; its assets sit on jibecdn.
+ICIMS_MARKS = ("careers-home", "jibecdn", "_jibe", "jibeapply")
+EIGHTFOLD_MARKS = ("eightfold", "pcsx-", "/api/pcsx/", "vscdn.net")
+EIGHTFOLD_SKIP = {"www.eightfold.ai", "app.eightfold.ai", "static.eightfold.ai"}
+# The careers page embeds its config as entity-escaped JSON; "domain" is the
+# value /api/pcsx/search wants. customDomain and friends are other keys, so
+# the opening quote is part of the match and the key is case sensitive.
+_Q = r"""(?:&#34;|&quot;|\\?["'])"""
+EIGHTFOLD_DOMAIN = re.compile(
+    _Q + r"domain" + _Q + r"\s*:\s*" + _Q + r"([a-z0-9-]+(?:\.[a-z0-9-]+)+)" + _Q)
+SF_MARKS = ("rmkcdn.successfactors", "jobs2web.com", "successfactors")
+# jobs.ea.com never says avature.net: assets come from avacdn.net and the
+# portal announces itself in <meta name="avature.portal.*">.
+AVATURE_MARKS = ("avature.net", "avacdn.net", "avature.portal")
+AVATURE_SEARCH = re.compile(
+    r"""(?:https?://([a-z0-9.-]+))?/([A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)?)/SearchJobs\b""")
+AVATURE_META = re.compile(
+    r'avature\.portal\.(urlPath|lang)"\s+content="([^"]+)"')
+
+# Labels for what the page looks like. Not a verdict: Cisco's Phenom site
+# applies through Workday, UnitedHealth's Taleo and Intuit's Avature are both
+# Radancy, Schwab's iCIMS is Radancy. A label reaches the row only when
+# nothing confirms: taleo and phenom as the tier B `ats`, the rest (which
+# have tier A adapters now) as a note on a `custom` row.
+FRONT_HINTS = {
     "icims.com": "icims", "successfactors": "successfactors",
     "taleo.net": "taleo", "phenompeople": "phenom", "eightfold.ai": "eightfold",
-    "avature.net": "avature",
+    "avature.net": "avature", "avacdn.net": "avature",
+    "avature.portal": "avature",
 }
+TIER_B_HINTS = FRONT_HINTS      # old name, kept for callers
+FRONTS = {"taleo", "phenom", "avature", "icims"}
+
+# One hop from the careers page to where its jobs or apply links live.
+FOLLOW_MAX = 3
+FOLLOW_DELAY = 1.0      # seconds before each followed page
+FOLLOW_BACKOFF = 8.0    # seconds, once, after a 429 or 503
+_HREF = re.compile(r"""href=["']([^"'#]+)["']""", re.I)
+_LISTING = re.compile(
+    r"(search-results|search-jobs|searchjobs|job-search|jobsearch"
+    r"|/search/?$|/jobs/?$|/careers/?$|/openings|/positions|/opportunities)", re.I)
+_JOB = re.compile(r"/(?:job|jobs|jobdetail|position)/[^/]+", re.I)
+_BOARD_HOSTS = (".eightfold.ai", ".avature.net")
+_ASSET = re.compile(r"\.(?:css|js|png|jpe?g|gif|svg|ico|woff2?|pdf|xml|json)(?:\?|$)", re.I)
 TOKEN_ATS = ("greenhouse", "lever", "ashby", "smartrecruiters",
              "workable", "recruitee")
 STOPWORDS = {"inc", "corp", "corporation", "co", "ltd", "llc", "the",
@@ -90,6 +146,153 @@ def slugs(name: str) -> list[tuple[str, bool]]:
             seen.add(tok)
             uniq.append((tok, exact))
     return uniq
+
+
+def _uniq(items: list[Any]) -> list[Any]:
+    seen: set[str] = set()
+    out: list[Any] = []
+    for it in items:
+        key = repr(it)
+        if key not in seen:
+            seen.add(key)
+            out.append(it)
+    return out
+
+
+def eightfold_domains(text: str, host: str) -> list[str]:
+    """Tenant domains to try with /api/pcsx/search, likeliest first.
+
+    The page's own "domain" value wins, most frequent first (Microsoft's
+    page says microsoft.com twice and careers.microsoft.com once). The
+    guess after it costs one request and is confirmed like any other
+    candidate.
+    """
+    found = [m.group(1).lower() for m in EIGHTFOLD_DOMAIN.finditer(text)]
+    ranked = sorted(_uniq(found), key=lambda d: -found.count(d))
+    labels = host.lower().split(".")
+    if host.lower().endswith(".eightfold.ai"):
+        ranked.append(f"{labels[0]}.com")
+    elif len(labels) >= 2:
+        ranked.append(".".join(labels[-2:]))
+    return _uniq(ranked)
+
+
+def avature_sites(text: str, url: str) -> list[str]:
+    """Portal paths (en_US/careers) an Avature page offers, likeliest first."""
+    u = httpx.URL(url)
+    out: list[str] = []
+    for m in AVATURE_SEARCH.finditer(url + "\n" + text):
+        if m.group(1) in (None, u.host):
+            out.append(m.group(2))
+    meta = dict(AVATURE_META.findall(text))
+    if meta.get("urlPath"):
+        out.append("/".join(x for x in (meta.get("lang"), meta["urlPath"]) if x))
+    parts = [p for p in u.path.split("/") if p]
+    if parts:
+        out.append("/".join(parts[:2]))
+    return _uniq(out)
+
+
+def site_candidates(haystack: str, url: str) -> list[tuple[str, dict[str, str]]]:
+    """Rows worth confirming for boards served from the careers host itself.
+
+    Pure: reads markers, returns (ats, config) pairs in the order to try
+    them. Radancy leads because it is the family that fronts the others
+    (Taleo at UnitedHealth, Avature at Intuit, iCIMS at Schwab), so a page
+    carrying both sets of markers is a TalentBrew site first.
+    """
+    low = haystack.lower()
+    host = httpx.URL(url).host.lower() if url else ""
+    out: list[tuple[str, dict[str, str]]] = []
+
+    accounts = _uniq([m.group(1) for m in KULA.finditer(haystack)
+                      if m.group(1).lower() not in KULA_SKIP])
+    for account in accounts[:3]:
+        out.append(("kula", {"token": account, "host": "careers.kula.ai"}))
+    if not host:
+        return out
+
+    if any(k in low for k in RADANCY_MARKS):
+        out.append(("radancy", {"host": host}))
+
+    # Only the careers-home site has the open /api/jobs. A classic
+    # *.icims.com portal answers 405 with an AWS WAF captcha, so it is never
+    # a candidate, whatever the page says about iCIMS.
+    if any(k in low for k in ICIMS_MARKS) and not host.endswith(".icims.com"):
+        out.append(("icims", {"host": host}))
+
+    if any(k in low for k in EIGHTFOLD_MARKS) or host.endswith(".eightfold.ai"):
+        # Plain row first: Netflix still answers /api/apply/v2/jobs. A
+        # PCSX-only tenant refuses that with a 403 on the first request.
+        out.append(("eightfold", {"host": host}))
+        for domain in eightfold_domains(haystack, host)[:3]:
+            out.append(("eightfold", {"host": host, "site": "pcsx", "query": domain}))
+
+    if any(k in low for k in SF_MARKS):
+        # Classic listing first. On a unify site the adapter raises (or
+        # finds no rows), and site=unify is then the row that confirms.
+        out.append(("successfactors", {"host": host}))
+        out.append(("successfactors", {"host": host, "site": "unify"}))
+
+    if any(k in low for k in AVATURE_MARKS):
+        for site in avature_sites(haystack, url)[:3]:
+            out.append(("avature", {"host": host, "site": site}))
+
+    # Weak: plenty of non-Radancy sites have a /search-jobs path (AMD's
+    # careers-home does), so this is tried last and only costs one request.
+    if RADANCY_WEAK.search(haystack):
+        out.append(("radancy", {"host": host}))
+    return _uniq(out)
+
+
+def follow_links(text: str, url: str) -> list[str]:
+    """Pages one hop away that may show the board behind a front end.
+
+    Listing pages on the same host first (Phenom's search-results embeds
+    every job's Workday applyUrl), then one job page, then links out to a
+    hosted board (morganstanley.com links to morganstanley.eightfold.ai).
+    """
+    base = httpx.URL(url)
+    # A relative href on a page served without a trailing slash is meant
+    # against that page as a directory: careers.cisco.com/global/en links
+    # "search-results" and means /global/en/search-results.
+    last = base.path.rsplit("/", 1)[-1]
+    if base.path and not base.path.endswith("/") and "." not in last:
+        base = base.copy_with(path=base.path + "/")
+    listing: list[str] = []
+    job: list[str] = []
+    boards: list[str] = []
+    for href in _HREF.findall(text):
+        href = href.replace("&amp;", "&").strip()
+        if not href or href.startswith(("mailto:", "tel:", "javascript:", "data:")):
+            continue
+        try:
+            u = base.join(href)
+        except Exception:  # noqa: BLE001
+            continue
+        if u.scheme not in ("http", "https") or _ASSET.search(u.path):
+            continue
+        full = str(u)
+        if full.rstrip("/") == url.rstrip("/"):
+            continue
+        if u.host == base.host:
+            if _LISTING.search(u.path):
+                listing.append(full)
+            elif _JOB.search(u.path):
+                job.append(full)
+        elif u.host.endswith(_BOARD_HOSTS) and u.host not in EIGHTFOLD_SKIP:
+            boards.append(full)
+    listing, job, boards = _uniq(listing), _uniq(job), _uniq(boards)
+    return _uniq(listing[:2] + job[:1] + boards[:2] + listing[2:])[:FOLLOW_MAX]
+
+
+def front_label(haystack: str) -> str:
+    """What the page is dressed as, for the note and the tier B fallback."""
+    low = haystack.lower()
+    for hint, name in FRONT_HINTS.items():
+        if hint in low:
+            return name
+    return ""
 
 
 # ------------------------------------------------------------- confirmation
@@ -162,6 +365,112 @@ async def probe_workday(client: httpx.AsyncClient, name: str) -> dict[str, Any]:
     return {}
 
 
+# ---------------------------------------------------------------- one page
+def page_text(final_url: str, body: str) -> str:
+    """The text markers are read from: where we landed, then the page.
+
+    JSON embedded in a page may escape its slashes, and an apply link
+    written as https:\\/\\/cisco.wd5.myworkdayjobs.com\\/Cisco_Careers would
+    slip past every URL pattern unless they are put back.
+    """
+    return final_url + "\n" + body[:500_000].replace("\\/", "/")
+
+
+async def fetch_page(client: httpx.AsyncClient, url: str) -> tuple[str, str] | None:
+    """A followed page as (final url, text), or None. One retry on 429/503."""
+    for attempt in range(2):
+        await asyncio.sleep(FOLLOW_BACKOFF if attempt else FOLLOW_DELAY)
+        try:
+            r = await client.get(url, headers=HEADERS)
+        except Exception:  # noqa: BLE001
+            return None
+        if r.status_code in (429, 503):
+            continue
+        if r.status_code >= 400:
+            return None
+        return str(r.url), page_text(str(r.url), r.text)
+    return None
+
+
+def _note(n: int, ats: str, front: str, via: str, extra: str = "") -> str:
+    note = f"confirmed {n} jobs" + (f" ({extra})" if extra else "")
+    # Only the labels seen fronting another board. Microsoft's eightfold
+    # page mentions successfactors twice and is not a skin over anything.
+    if front in FRONTS and front != ats:
+        note += f"; {front} front end over {ats}"
+    if via:
+        note += f"; found via {via}"
+    return note
+
+
+async def from_page(client: httpx.AsyncClient, row: dict[str, Any], haystack: str,
+                    url: str, front: str = "", via: str = "") -> dict[str, Any]:
+    """Confirm the first board this page's markers point at, or return {}.
+
+    `front` is the label of the page that led here, when this page was
+    reached by following a link; otherwise the page labels itself.
+    """
+    company = row["company"]
+    front = front or front_label(haystack)
+
+    m = WORKDAY.search(haystack)
+    if m:
+        cand: dict[str, Any] = {**row, "ats": "workday", "tenant": m.group(1).lower(),
+                "wd": m.group(2).lower(), "site": m.group(3)}
+        n = await confirm(client, "workday", cand)
+        if n > 0:
+            cand["notes"] = _note(n, "workday", front, via)
+            return cand
+
+    m = WORKDAY_SITE.search(haystack)
+    if m:
+        cand = {**row, "ats": "workday", "host": m.group(1).lower(),
+                "wd": m.group(2).lower(), "tenant": m.group(3), "site": m.group(4)}
+        n = await confirm(client, "workday", cand)
+        if n > 0:
+            cand["notes"] = _note(n, "workday", front, via)
+            return cand
+
+    m = ORACLE.search(haystack)
+    if m:
+        host, site = m.group(1).lower(), m.group(2)
+        cand = {**row, "ats": "oracle", "host": host, "site": site}
+        n = await confirm(client, "oracle", cand)
+        if n > 0:
+            cand["notes"] = _note(n, "oracle", front, via)
+            return cand
+        # Oracle sites are numbered, so walk the neighbours
+        for alt in (f"CX_{i}" for i in range(1, 8)):
+            cand = {**row, "ats": "oracle", "host": host, "site": alt}
+            n = await confirm(client, "oracle", cand)
+            if n > 0:
+                cand["notes"] = _note(n, "oracle", front, via, f"site {alt}")
+                return cand
+
+    # Every embed marker on the page, confirmed one at a time. Dead
+    # footer embeds fail confirmation and get skipped.
+    for ats, pat in EMBED:
+        for m in pat.finditer(haystack):
+            token = m.group(1)
+            n = await confirm(client, ats, cast(dict[str, Any], {"token": token, "company": company}))
+            if n > 0:
+                return {**row, "ats": ats, "token": token,
+                        "notes": _note(n, ats, front, via)}
+
+    # Boards served from the careers host. Same rule: the adapter has to
+    # return jobs for the exact row that would be written.
+    for ats, cfg in site_candidates(haystack, url):
+        cand = {**row, "ats": ats, **cfg}
+        n = await confirm(client, ats, cand)
+        if n > 0:
+            note = _note(n, ats, front, via)
+            if n < MIN_PLAUSIBLE:
+                note = f"VERIFY: only {n} jobs | {note}"
+            cand["notes"] = note
+            return cand
+    return {}
+
+
 # ------------------------------------------------------------------ resolve
 async def resolve(client: httpx.AsyncClient, company: str, ticker: str, url: str,
                   ats_hint: str = "", auto: bool = False) -> dict[str, Any]:
@@ -169,49 +478,30 @@ async def resolve(client: httpx.AsyncClient, company: str, ticker: str, url: str
     row.update(company=company, ticker=ticker.upper(), careers_url=url)
 
     # ---- path 1: a URL to read -------------------------------------------
-    haystack = ""
+    haystack, final_url = "", url
     if url:
         try:
             r = await client.get(url, headers=HEADERS)
-            haystack = str(r.url) + "\n" + r.text[:500_000]
+            final_url = str(r.url)
+            haystack = page_text(final_url, r.text)
         except Exception as e:  # noqa: BLE001
             row["notes"] = f"fetch failed: {type(e).__name__}"
 
     if haystack:
-        m = WORKDAY.search(haystack)
-        if m:
-            cand: dict[str, Any] = {**row, "ats": "workday", "tenant": m.group(1).lower(),
-                    "wd": m.group(2).lower(), "site": m.group(3)}
-            n = await confirm(client, "workday", cand)
-            if n > 0:
-                cand["notes"] = f"confirmed {n} jobs"
-                return cand
-
-        m = ORACLE.search(haystack)
-        if m:
-            host, site = m.group(1).lower(), m.group(2)
-            cand: dict[str, Any] = {**row, "ats": "oracle", "host": host, "site": site}
-            n = await confirm(client, "oracle", cand)
-            if n > 0:
-                cand["notes"] = f"confirmed {n} jobs"
-                return cand
-            # Oracle sites are numbered, so walk the neighbours
-            for alt in (f"CX_{i}" for i in range(1, 8)):
-                cand: dict[str, Any] = {**row, "ats": "oracle", "host": host, "site": alt}
-                n = await confirm(client, "oracle", cand)
-                if n > 0:
-                    cand["notes"] = f"confirmed {n} jobs (site {alt})"
-                    return cand
-
-        # Every embed marker on the page, confirmed one at a time. Dead
-        # footer embeds fail confirmation and get skipped.
-        for ats, pat in EMBED:
-            for m in pat.finditer(haystack):
-                token = m.group(1)
-                n = await confirm(client, ats, cast(dict[str, Any], {"token": token, "company": company}))
-                if n > 0:
-                    return {**row, "ats": ats, "token": token,
-                            "notes": f"confirmed {n} jobs"}
+        hit = await from_page(client, row, haystack, final_url)
+        if hit:
+            return hit
+        # Nothing on the page itself confirmed. Before calling it tier B,
+        # look one hop in: a front end's listing or job page is where the
+        # real board's links are.
+        for link in follow_links(haystack, final_url):
+            page = await fetch_page(client, link)
+            if not page:
+                continue
+            hit = await from_page(client, row, page[1], page[0],
+                                  front=front_label(haystack), via=link)
+            if hit:
+                return hit
 
     # ---- path 2: an ATS hint, no usable URL ------------------------------
     if ats_hint in TOKEN_ATS:
@@ -241,11 +531,17 @@ async def resolve(client: httpx.AsyncClient, company: str, ticker: str, url: str
                     "wd": wd["wd"], "site": wd["site"], "notes": "auto-probed"}
 
     # ---- tier B fallback --------------------------------------------------
-    for hint, name in TIER_B_HINTS.items():
-        if hint in haystack.lower():
-            return {**row, "ats": name,
-                    "host": httpx.URL(str(url)).host if url else "",
-                    "notes": "tier B"}
+    # Reached only when nothing confirmed. A family with a tier A adapter
+    # must not keep its name here: `ats=icims` on an unconfirmed row would
+    # read as a working board to the registry and to the summary below.
+    # The classic *.icims.com portals (405, AWS WAF captcha) land here.
+    label = front_label(haystack)
+    if label:
+        host = httpx.URL(str(url)).host if url else ""
+        if label in TIER_A:
+            return {**row, "ats": "custom", "host": host,
+                    "notes": f"tier B; {label} markers but its API did not confirm"}
+        return {**row, "ats": label, "host": host, "notes": "tier B"}
     row.update(ats="custom",
                host=httpx.URL(str(url)).host if url else "",
                notes=row.get("notes") or "tier B, unidentified")
