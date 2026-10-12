@@ -157,16 +157,23 @@ JPMorgan 5,100 -> 7,301). A full `verify.py` on an unfiltered network:
 
 ## 6. Tooling
 
-- [ ] **`verify.py` paginated check**: the docstring promises "count matches
-      the board's own total" but nothing implements it. It would have caught
-      Google's page-27 stop automatically. Needs each adapter to report the
-      board's total.
-- [ ] **`verify.py` dated check**: Radancy, SAP, Supermicro and Meta boards
-      publish no dates, so they warn on every run. Allow a per-adapter or
-      per-row "undated" expectation.
-- [ ] **`verify.py --baseline` never prunes**: keys for removed or rekeyed rows
-      (e.g. the old single-row `SAP`) stay forever. Drop keys with no row on
-      a full, unfiltered run.
+- [x] **`verify.py` paginated check**: 17 adapters now record the board's
+      own total (`_board_total`) and verify warns beyond max(2, 1%) of it.
+      First full run, 2026-10-12: no paginated warning on 118 boards.
+- [x] **`verify.py` dated check**: baseline-driven. The baseline stores each
+      board's dated share; the warning is a 20-point fall against it, so the
+      7 boards that never publish dates stop warning once baselined.
+- [x] **`verify.py --baseline` prunes**: a full run on the default registry
+      drops keys with no row (5 on the first run) and keeps the old entry
+      of a row that failed that day.
+- [x] **`verify.py` link check headers** (found 2026-10-12): sends browser
+      navigation headers. Meta answered 400 without them; now 3/3 live.
+- [ ] **Amazon reads exactly 10,000**: the paginated check is silent because
+      amazon.jobs' own API reports `hits: 10000`. The cap is theirs and the
+      real count unknown. Slice by a facet (country, category) to find out.
+- [ ] **Apple serves empty search pages** ~15% of the time (2026-10-12). The
+      adapter retries 8 times a page; if the rate climbs, a sweep will start
+      failing loudly rather than returning a partial board.
 - [ ] **`discover.py` markers**: recognise Radancy TalentBrew (`tbcdn`,
       `talentbrew`), careers-home iCIMS and Kula; it still sends taleo /
       avature / phenom sites to tier B though all three proved to be
