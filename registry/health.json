@@ -657,5 +657,11 @@
     "ats": "apple",
     "company": "Apple",
     "checked": "2026-10-01T21:31:42+00:00"
+  },
+  "Verily": {
+    "count": 78,
+    "ats": "workday",
+    "company": "Verily",
+    "checked": "2026-10-12T11:33:41+00:00"
   }
 }

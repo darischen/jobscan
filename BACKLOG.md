@@ -135,10 +135,18 @@ postings and 1,813 early-career hits; the Google fix recovered ~2,700 more.
       2026-10-12: 7,301 (one withdrawn mid-sweep), rebaselined. Lowe's had
       the same bug in the workday adapter (5,020 of 12,603). Every other
       adapter's page bound is at least 2x its largest board.
-- [ ] **SAP cross-board overlap**: one title appears on both careers.sap.com
-      and the SmartRecruiters board. Confirm whether it is one posting twice.
-- [ ] **Verily Life Sciences**: ~1 posting via the Google org facet, no
-      standalone board found.
+- [x] **SAP cross-board overlap**: measured 2026-10-12, kept both rows.
+      17 of the SmartRecruiters board's 163 titles also appear on
+      careers.sap.com, but only 5 share title *and* city, and title alone
+      proves little (careers.sap.com itself has three separate reqs titled
+      "IT Technology Services Senior Specialist" in Newtown Square). Against
+      a boilerplate baseline from unrelated SAP ads, ~3 of the 5 look like
+      the same posting on both boards, 1 of them US (SAP NS2, Herndon VA).
+      Not worth cross-board fuzzy dedupe; the other ~160 are unique.
+- [x] **Verily Life Sciences**: has its own Workday board after all,
+      `verily.wd1` / `Verily_Careers`, linked from verily.com/careers.
+      `discover.py` missed it (tenant not derived from the name). New row:
+      78 of 78, 4 early-career hits, verify ok (2026-10-12).
 - [ ] **TikTok dates are inferred**: decoded from the id's creation time
       (`posted_source=id_epoch`), so evergreen postings show 2023. Owner
       sign-off, or drop the date.
