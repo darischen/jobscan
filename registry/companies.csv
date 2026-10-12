@@ -17,7 +17,7 @@ Ameren,,workday,,ameren,External,wd1,,https://ameren.wd1.myworkdayjobs.com/Exter
 American Express,AXP,oracle,,,CX_1,,egug.fa.us2.oraclecloud.com,https://careers.americanexpress.com/en/sites/CX_1/jobs,,confirmed 354 jobs
 Anthropic,,greenhouse,anthropic,,,,,https://www.anthropic.com/careers,,private
 Apple,AAPL,apple,,,,,jobs.apple.com,https://jobs.apple.com/en-us/search,,2026-10-01: search pages are server rendered (hydration JSON + totalRecords); US slug by default via site; old /api/role/search and /api/csrfToken now 404
-Atlassian,TEAM,custom,,,,,www.atlassian.com,https://www.atlassian.com/company/careers/all-jobs,,"iCIMS ATS with no careers-home site; classic *.icims.com portals return 405 AWS WAF captcha. 2026-10-01: GET www.atlassian.com/endpoint/careers/listings returns one unpaged JSON list, 351 entries = 333 unique iCIMS ids posted across 6 portals, no total field. Needs its own small adapter that dedupes on id"
+Atlassian,TEAM,atlassian,,,,,www.atlassian.com,https://www.atlassian.com/company/careers/all-jobs,,"2026-10-12: own endpoint www.atlassian.com/endpoint/careers/listings, one unpaged JSON list (347 entries = 329 unique iCIMS ids over 6 portals; repeats are verbatim). Adapter dedupes on id; the all-jobs page shows 329 RESULTS. Classic *.icims.com portals still 405 AWS WAF captcha. Date is updatedDate (last updated, no zone)"
 Bloomberg,,workday,,bloomberg,Bloombergindustrygroup_External_Career_Site,wd1,,https://bloomberg.wd1.myworkdayjobs.com/Bloombergindustrygroup_External_Career_Site/,,confirmed 57 jobs
 Box,BOX,greenhouse,boxinc,,,,,https://careers.box.com/en/jobs,,probed  confirmed 117 jobs
 Broadcom,AVGO,custom,,,,,www.broadcom.com,https://www.broadcom.com/company/careers,,tier B - unidentified

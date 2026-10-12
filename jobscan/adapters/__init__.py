@@ -1622,8 +1622,85 @@ async def successfactors(c: httpx.AsyncClient, company: str,
     return await _sf_classic(c, company, host, query)
 
 
+# ----------------------------------------------------------------- atlassian
+# Atlassian runs iCIMS behind six classic portals (careers-americas,
+# globalcareers-atlassian, careers-apac-atlassian, two campus portals and
+# globalmobility), every one of them 405 behind an AWS WAF captcha. Its own
+# careers page instead reads one unpaged JSON list from
+# www.atlassian.com/endpoint/careers/listings: no paging, no total field.
+#
+# The list repeats some postings verbatim (same id, same portal, same
+# fields), so the adapter dedupes on the iCIMS id. Measured 2026-10-12:
+# 347 entries, 329 unique ids, no id on two portals, and the all-jobs page
+# rendered in a browser said "329 RESULTS" with 329 distinct detail links.
+# The deduped count is the board's own count.
+#
+# The only date is portalJobPost.updatedDate, "2026-09-24 03:33 PM" with no
+# zone, so it is a last-updated date at day resolution, not a posting date.
+# Links go to www.atlassian.com/company/careers/details/{id}, the page the
+# site itself links, because the iCIMS portal URLs hit the captcha.
+_ATL_SPACES = re.compile(r"\s+")
+
+
+def _atlassian_date(value: Any) -> str | None:
+    if not value or not isinstance(value, str):
+        return None
+    from datetime import datetime as _datetime
+    try:
+        dt = _datetime.strptime(value.strip(), "%Y-%m-%d %I:%M %p")
+    except ValueError:
+        return dates.from_iso(value)
+    return dates.from_iso(dt.isoformat())
+
+
+def _atlassian_location(locs: Any) -> str:
+    """Entries look like 'Bengaluru - India -   Bengaluru,  560071 India'."""
+    out: list[str] = []
+    for loc in locs or []:
+        if not isinstance(loc, str):
+            continue
+        s = _ATL_SPACES.sub(" ", loc).strip()
+        if s and s not in out:
+            out.append(s)
+    return "; ".join(out)
+
+
+async def atlassian(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> list[Job]:
+    host = row.get("host") or "www.atlassian.com"
+    r = await c.get(f"https://{host}/endpoint/careers/listings", headers={
+        **HEADERS, "Referer": f"https://{host}/company/careers/all-jobs"})
+    r.raise_for_status()
+    data = r.json()
+    if not isinstance(data, list):
+        raise ValueError(f"atlassian: expected a JSON list, got {type(data).__name__}")
+    out: list[Job] = []
+    seen: set[str] = set()
+    for j in data:
+        if not isinstance(j, dict):
+            continue
+        post = j.get("portalJobPost") or {}
+        jid = str(j.get("id") or post.get("id") or "")
+        if not jid or jid in seen:
+            continue
+        seen.add(jid)
+        posted, src = dates.pick(("updatedDate", _atlassian_date(post.get("updatedDate"))))
+        out.append(Job(
+            company=company,
+            title=(j.get("title") or "").strip(),
+            url=f"https://{host}/company/careers/details/{jid}",
+            location=_atlassian_location(j.get("locations")),
+            ats="atlassian",
+            posted_at=posted,
+            posted_source=src,
+            raw_id=jid,
+            department=j.get("category") or "",
+        ))
+    return out
+
+
 TIER_A = {
     "amazon": amazon,
+    "atlassian": atlassian,
     "apple": apple,
     "meta": meta,
     "eightfold": eightfold,

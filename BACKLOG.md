@@ -70,8 +70,12 @@ postings and 1,813 early-career hits; the Google fix recovered ~2,700 more.
       the `/careers` page has set session cookies (429 without them);
       Microsoft reports 2,352. The July "PCSX disabled" diagnosis came from
       the older `/api/apply/v2/jobs` path only.
-- [ ] **Atlassian**: unpaged JSON at `atlassian.com/endpoint/careers/listings`
+- [x] **Atlassian**: unpaged JSON at `atlassian.com/endpoint/careers/listings`
       (351 entries, 333 unique ids, no total field). Small dedicated adapter.
+      Done 2026-10-12: `atlassian` adapter, dedupes on the iCIMS id. 347
+      entries, 329 unique, equal to the "329 RESULTS" the all-jobs page
+      renders. verify.py ok: 329 jobs, 11 early-career hits, 100% dated
+      (updatedDate, a last-updated date), 3/3 links live.
 - [ ] **Shopify, DigitalOcean**: one manual look before assuming a browser;
       `discover.py` misses board tokens unrelated to the company name.
 - [ ] **Broadcom, Electronic Arts, Fidelity, Morgan Stanley**: unidentified.
