@@ -63,7 +63,7 @@ Lowe's,LOW,workday,,lowes,LWS_External_CS,wd5,,https://lowes.wd5.myworkdayjobs.c
 Lyft,LYFT,greenhouse,lyft,,,,,https://app.careerpuck.com/job-board/lyft/,,
 Meta,META,custom,,,,,www.metacareers.com,https://www.metacareers.com/jobsearch/,,"DISABLED pending owner decision: robots.txt says automated collection is prohibited without written permission. The meta adapter works (1,061 postings 2026-10-01); set ats=meta to enable. 2026-10-01: GraphQL CareersJobSearchResultsV2DataQuery; doc_id and LSD rediscovered each run from the page and its direct script bundles; no posting dates; robots.txt carries a no-automated-collection notice"
 Micron,MU,workday,,micron,External,wd1,,https://micron.wd1.myworkdayjobs.com/External,,
-Microsoft,MSFT,custom,,,,,apply.careers.microsoft.com,https://apply.careers.microsoft.com/careers,,"not SuccessFactors: apply.careers.microsoft.com is an eightfold PCSX site. /api/apply/v2/jobs returns 403 'Not authorized for PCSX', but /api/pcsx/search?domain=microsoft.com&start=N returns 10 positions a page with count=2352 once the /careers page cookies are held (cookieless: 429). Needs a pcsx mode in the eightfold adapter (2026-10-01)"
+Microsoft,MSFT,eightfold,,,pcsx,,apply.careers.microsoft.com,https://apply.careers.microsoft.com/careers,microsoft.com,"confirmed via eightfold pcsx mode: /api/apply/v2/jobs is 403 'Not authorized for PCSX', /api/pcsx/search serves the board. verify.py 2,236 unique ids against count 2,237 read just after (board grew 2,235 to 2,237 that hour), 100% dated (2026-10-12)"
 Moderna,MRNA,workday,,modernatx,M_tx,wd1,,https://modernatx.wd1.myworkdayjobs.com/M_tx,,confirmed 189 jobs
 Morgan Stanley,MS,custom,,,,,www.morganstanley.com,https://www.morganstanley.com/careers,,tier B
 NBA,,workday,,nba,nbacareers,wd108,,https://careers.nba.com/c/technology-jobs,,confirmed 45 jobs
@@ -76,9 +76,9 @@ Oracle,ORCL,oracle,,,jobsearch,,eeho.fa.us2.oraclecloud.com,https://careers.orac
 Palantir,PLTR,lever,palantir,,,,,https://www.palantir.com/careers/,,
 Panasonic,PCRFY,icims,,,,,careers.na.panasonic.com,https://careers.na.panasonic.com/careers-home/jobs,,"confirmed 447 jobs via icims careers-home /api/jobs 2026-10-01 (430 en-us + 17 es-mx, distinct req_ids); classic uscareers-napanasonic.icims.com portal is behind an AWS WAF captcha"
 Paramount Global,PARA,successfactors,,,,,careers.paramount.com,https://careers.paramount.com/search/,,"confirmed 279 jobs (2026-10-01); classic SuccessFactors CSB listing, tile layout"
-PayPal,PYPL,custom,,,,,paypal.eightfold.ai,https://paypal.eightfold.ai/careers,,eightfold tenant with PCSX disabled: /api/apply/v2/jobs returns 403 'Not authorized for PCSX' for any params; needs another route
+PayPal,PYPL,eightfold,,,pcsx,,paypal.eightfold.ai,https://paypal.eightfold.ai/careers,paypal.com,"confirmed via eightfold pcsx mode; the July 'PCSX disabled' diagnosis came from /api/apply/v2/jobs only. verify.py 312 unique ids, count 312, 100% dated (2026-10-12)"
 Pinterest,PINTEREST,greenhouse,pinterest,,,,,https://www.pinterestcareers.com,,
-Qualcomm,QCOM,custom,,,,,careers.qualcomm.com,https://careers.qualcomm.com/careers,,eightfold tenant with PCSX disabled: /api/apply/v2/jobs returns 403 'Not authorized for PCSX' for any params; needs another route
+Qualcomm,QCOM,eightfold,,,pcsx,,careers.qualcomm.com,https://careers.qualcomm.com/careers,qualcomm.com,"confirmed via eightfold pcsx mode; the July 'PCSX disabled' diagnosis came from /api/apply/v2/jobs only. verify.py 2,081 unique ids, count 2,081, 100% dated (2026-10-12)"
 Ramp,,ashby,ramp,,,,,https://ramp.com/careers,,private
 Reddit,RDDT,greenhouse,reddit,,,,,https://redditinc.com/careers,,
 Robinhood,,greenhouse,robinhood,,,,,https://job-boards.greenhouse.io/robinhood/,,confirmed 124 jobs
