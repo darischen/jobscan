@@ -87,7 +87,20 @@ postings and 1,813 early-career hits; the Google fix recovered ~2,700 more.
       total field; discipline pages are subsets of it. 7 early-career hits,
       100% dated, verify.py ok. The loader also ships each requisition's
       hiring team (names, emails); the adapter ignores it.
-- [ ] **Broadcom, Electronic Arts, Fidelity, Morgan Stanley**: unidentified.
+- [ ] **Broadcom, Electronic Arts, Fidelity, Morgan Stanley**: identified
+      2026-10-12; three promoted, Morgan Stanley waits on eightfold PCSX.
+  - [x] Broadcom: Workday `broadcom/External_Career` (links exist only in
+        the rendered DOM). 386 of total 387, the other a titleless stub;
+        15 early-career hits, 100% dated.
+  - [x] Electronic Arts: Avature portal jobs.ea.com, new `avature` adapter
+        (SearchJobs HTML, 20 a page). 362 of 362, 42 hits, undated (the RSS
+        feed ignores paging).
+  - [x] Fidelity: Workday `fmr/FidelityCareers` on wd1.myworkdaysite.com,
+        behind jobs.fidelity.com. 795 of 795, 6 hits, 100% dated. The row's
+        ticker FIS is a different company (fis.wd5 `SearchJobs`, 545).
+  - [ ] Morgan Stanley: eightfold PCSX at morganstanley.eightfold.ai,
+        `/api/pcsx/search?domain=morganstanley.com` count 1,285; v2 API 403.
+        Same fix as the PCSX item above (`site=pcsx`).
 - [ ] **Tesla**: browser only (see section 3).
 - [ ] **Meta**: owner decision (see section 3).
 

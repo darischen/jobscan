@@ -20,7 +20,7 @@ Apple,AAPL,apple,,,,,jobs.apple.com,https://jobs.apple.com/en-us/search,,2026-10
 Atlassian,TEAM,atlassian,,,,,www.atlassian.com,https://www.atlassian.com/company/careers/all-jobs,,"2026-10-12: own endpoint www.atlassian.com/endpoint/careers/listings, one unpaged JSON list (347 entries = 329 unique iCIMS ids over 6 portals; repeats are verbatim). Adapter dedupes on id; the all-jobs page shows 329 RESULTS. Classic *.icims.com portals still 405 AWS WAF captcha. Date is updatedDate (last updated, no zone)"
 Bloomberg,,workday,,bloomberg,Bloombergindustrygroup_External_Career_Site,wd1,,https://bloomberg.wd1.myworkdayjobs.com/Bloombergindustrygroup_External_Career_Site/,,confirmed 57 jobs
 Box,BOX,greenhouse,boxinc,,,,,https://careers.box.com/en/jobs,,probed  confirmed 117 jobs
-Broadcom,AVGO,custom,,,,,www.broadcom.com,https://www.broadcom.com/company/careers,,tier B - unidentified
+Broadcom,AVGO,workday,,broadcom,External_Career,wd1,,https://broadcom.wd1.myworkdayjobs.com/External_Career,,"broadcom.com/company/careers is a React shell whose Search Jobs buttons link to this Workday board (rendered DOM only, absent from server HTML). 2026-10-12: 386 of total 387, the 387th a titleless pathless stub (R027024) the adapter skips"
 Charles Schwab,SCHW,radancy,,,,,www.schwabjobs.com,https://www.schwabjobs.com/search-jobs,,"Radancy TalentBrew over iCIMS; the classic *.icims.com portal returns a 405 AWS WAF captcha and there is no careers-home site. 2026-10-01: radancy adapter, 346 of 346"
 Cisco,CSCO,workday,,cisco,Cisco_Careers,wd5,,https://careers.cisco.com/global/en/search-results,,"Phenom front-end (careers.cisco.com, refNum CISCISGLOBAL) over Workday; read Workday directly. 2026-10-01: Workday 1336, Phenom mirror 1307"
 Cloudflare,NET,greenhouse,cloudflare,,,,,https://www.cloudflare.com/careers/jobs/,,
@@ -37,9 +37,9 @@ Disney,DIS,workday,,disney,disneycareer,wd5,,https://disney.wd5.myworkdayjobs.co
 DoorDash,DASH,greenhouse,doordashusa,,,,,https://careers.doordash.com/,,token is doordashusa not doordash
 Dropbox,DBX,greenhouse,dropbox,,,,,https://www.dropbox.jobs/en/jobs/,,confirmed 28 jobs
 Elastic,,greenhouse,elastic,,,,,https://jobs.elastic.co/,,
-Electronic Arts,EA,custom,,,,,www.ea.com,https://www.ea.com/careers,,tier B
+Electronic Arts,EA,avature,,,en_US/careers,,jobs.ea.com,https://jobs.ea.com/en_US/careers/SearchJobs,,"ea.com/careers links Explore opportunities to jobs.ea.com, an Avature portal (avacdn assets, avature.portal.* meta); apply stays on Avature (ApplicationMethods). 2026-10-12: 362 of 362 results, 20 a page, undated (the RSS feed ignores paging)"
 Epic Games,,greenhouse,epicgames,,,,,https://www.epicgames.com/site/careers/jobs,,confirmed 137 jobs
-Fidelity,FIS,custom,,,,,jobs.fidelity.com,https://jobs.fidelity.com,,tier B
+Fidelity,FIS,workday,,fmr,FidelityCareers,wd1,wd1.myworkdaysite.com,https://jobs.fidelity.com,,"Fidelity Investments (FMR). jobs.fidelity.com is a front end whose job pages apply via wd1.myworkdaysite.com/recruiting/fmr/FidelityCareers; read Workday directly. 2026-10-12: Workday 795, jobs.fidelity.com/en/jobs about 751, 38 pages (US site; /ie/ and /in/ list the rest). Ticker FIS is Fidelity National Information Services, a different company (fis.wd5 SearchJobs, 545 on 2026-10-12)"
 Figma,FIG,greenhouse,figma,,,,,https://www.figma.com/careers/,,
 Ford,F,oracle,,,CX_1,,efds.fa.em5.oraclecloud.com,https://apply.ford.com/en/sites/CX_1/jobs,,confirmed 845 jobs; needed OS trust store
 Genentech,DNA,workday,,roche,ROG-A2O-GENE,wd3,,https://careers.gene.com/us/en/search-results,,confirmed 232 jobs
@@ -65,7 +65,7 @@ Meta,META,custom,,,,,www.metacareers.com,https://www.metacareers.com/jobsearch/,
 Micron,MU,workday,,micron,External,wd1,,https://micron.wd1.myworkdayjobs.com/External,,
 Microsoft,MSFT,custom,,,,,apply.careers.microsoft.com,https://apply.careers.microsoft.com/careers,,"not SuccessFactors: apply.careers.microsoft.com is an eightfold PCSX site. /api/apply/v2/jobs returns 403 'Not authorized for PCSX', but /api/pcsx/search?domain=microsoft.com&start=N returns 10 positions a page with count=2352 once the /careers page cookies are held (cookieless: 429). Needs a pcsx mode in the eightfold adapter (2026-10-01)"
 Moderna,MRNA,workday,,modernatx,M_tx,wd1,,https://modernatx.wd1.myworkdayjobs.com/M_tx,,confirmed 189 jobs
-Morgan Stanley,MS,custom,,,,,www.morganstanley.com,https://www.morganstanley.com/careers,,tier B
+Morgan Stanley,MS,custom,,,,,morganstanley.eightfold.ai,https://morganstanley.eightfold.ai/careers,morganstanley.com,"eightfold PCSX site: morganstanley.com/careers/career-opportunities-search links to morganstanley.eightfold.ai/careers. /api/apply/v2/jobs returns 403 Not authorized for PCSX (with or without domain); /api/pcsx/search?domain=morganstanley.com&start=0 returns 200 with count=1285, 10 positions a page (answered even without cookies). Promote as ats=eightfold, site=pcsx once the eightfold pcsx mode lands (2026-10-12)"
 NBA,,workday,,nba,nbacareers,wd108,,https://careers.nba.com/c/technology-jobs,,confirmed 45 jobs
 Netflix,NFLX,eightfold,,,,,explore.jobs.netflix.net,https://explore.jobs.netflix.net/careers,,confirmed 476 jobs via eightfold PCSX api
 Notion,,ashby,notion,,,,,https://jobs.ashbyhq.com/notion,,confirmed 116 jobs
