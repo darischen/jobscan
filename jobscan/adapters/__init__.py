@@ -1622,8 +1622,101 @@ async def successfactors(c: httpx.AsyncClient, company: str,
     return await _sf_classic(c, company, host, query)
 
 
+# ------------------------------------------------------------------- avature
+# Avature career portals (jobs.ea.com). The listing is server-rendered HTML
+# at https://{host}/{site}/SearchJobs/?jobOffset=N, where `site` is the
+# portal path, locale included ("en_US/careers"). Each result is an
+# <article class="article--result"> holding the JobDetail link, whose last
+# path segment is the posting id, and a subtitle of spans: list-item-location,
+# list-item-id, list-item-workerType, list-item-department. The page states
+# the board's total as "362 results".
+#
+# Measured on EA 2026-10-12: 20 cards a page whatever jobRecordsPerPage asks
+# for, so the offset advances by the cards actually received; a plain sweep
+# returned 362 unique ids for a total of 362, so no overlap is needed. The
+# portal's RSS feed (SearchJobs/feed/) carries pubDate but ignores jobOffset
+# and jobRecordsPerPage, always serving the same 20 items, so it cannot date
+# the board and posted_at stays None. Not every Avature tenant serves this
+# page: Intuit's portal 404s on search, which is why Intuit reads Radancy.
+AVATURE_PAGE = 100          # requested; EA serves 20 regardless
+AVATURE_DELAY = 0.4         # seconds between pages
+AVATURE_MAX_PAGES = 500     # loop bound only; the board's total is the stop
+_AVATURE_CARD = re.compile(r'<article\b[^>]*\barticle--result\b')
+_AVATURE_LINK = re.compile(
+    r'<a\b[^>]*href="([^"]*/JobDetail/[^"]*?/(\d+))"[^>]*>(.*?)</a>', re.S)
+_AVATURE_TOTAL = re.compile(r"(\d[\d,.]*)\s+results?\b", re.I)
+
+
+def _avature_span(cls: str, card: str) -> str:
+    m = re.search(rf'class="{cls}"[^>]*>(.*?)</span>', card, re.S)
+    if not m:
+        return ""
+    return _unescape(re.sub(r"<[^>]+>", "", m.group(1))).strip()
+
+
+def _avature_cards(page: str) -> list[dict[str, str]]:
+    cards = []
+    for block in _AVATURE_CARD.split(page)[1:]:
+        link = _AVATURE_LINK.search(block)
+        if not link:
+            continue
+        cards.append({
+            "url": _unescape(link.group(1)),
+            "id": link.group(2),
+            "title": _unescape(re.sub(r"<[^>]+>", "", link.group(3))).strip(),
+            "location": _avature_span("list-item-location", block),
+            "department": _avature_span("list-item-department", block),
+        })
+    return cards
+
+
+async def avature(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> list[Job]:
+    host, site = row.get("host", ""), (row.get("site") or "").strip("/")
+    if not host or not site:
+        raise ValueError("avature rows need host and site (the portal path, e.g. en_US/careers)")
+    url = f"https://{host}/{site}/SearchJobs/"
+    out: list[Job] = []
+    seen: set[str] = set()
+    offset, total = 0, None
+    for page in range(AVATURE_MAX_PAGES):
+        if page:
+            await asyncio.sleep(AVATURE_DELAY)
+        params: dict[str, Any] = {"jobOffset": offset, "jobRecordsPerPage": AVATURE_PAGE}
+        if row.get("query"):
+            params["search"] = row["query"]
+        r = await c.get(url, params=params,
+                        headers={**HEADERS, "Accept": "text/html,application/xhtml+xml"})
+        r.raise_for_status()
+        if total is None:
+            m = _AVATURE_TOTAL.search(r.text)
+            total = int(re.sub(r"\D", "", m.group(1))) if m else 0
+        cards = _avature_cards(r.text)
+        fresh = 0
+        for card in cards:
+            if card["id"] in seen:
+                continue
+            seen.add(card["id"])
+            fresh += 1
+            out.append(Job(
+                company=company,
+                title=card["title"],
+                url=card["url"],
+                location=card["location"],
+                ats="avature",
+                raw_id=card["id"],
+                department=card["department"],
+            ))
+        offset += len(cards)
+        # A page of nothing new means the portal has run out (or is looping
+        # on its last page); a reported total stops the sweep exactly.
+        if not cards or not fresh or (total and len(seen) >= total):
+            return out
+    raise RuntimeError(f"avature sweep of {host} exceeded {AVATURE_MAX_PAGES} pages")
+
+
 TIER_A = {
     "amazon": amazon,
+    "avature": avature,
     "apple": apple,
     "meta": meta,
     "eightfold": eightfold,
@@ -1644,6 +1737,6 @@ TIER_A = {
     "successfactors": successfactors,
 }
 
-TIER_B = {"taleo", "phenom", "avature", "custom"}
+TIER_B = {"taleo", "phenom", "custom"}
 
 KNOWN = set(TIER_A) | TIER_B
