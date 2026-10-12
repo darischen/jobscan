@@ -171,6 +171,12 @@ JPMorgan 5,100 -> 7,301). A full `verify.py` on an unfiltered network:
 - [ ] **Amazon reads exactly 10,000**: the paginated check is silent because
       amazon.jobs' own API reports `hits: 10000`. The cap is theirs and the
       real count unknown. Slice by a facet (country, category) to find out.
+- [ ] **Workday facet slicing tops out around 10x the cap**: measured on
+      Accenture unfiltered, 2026-10-12: 20,847 of ~42,100 postings in 3,980
+      requests and 99 minutes, because slices still over 2,000 after two
+      levels are read only to the cap. Fine for NVIDIA (~2,700, 144
+      requests). A board that large needs a `token` facet filter, as
+      Accenture has; `verify.py`'s paginated check now flags the shortfall.
 - [ ] **Apple serves empty search pages** ~15% of the time (2026-10-12). The
       adapter retries 8 times a page; if the rate climbs, a sweep will start
       failing loudly rather than returning a partial board.
