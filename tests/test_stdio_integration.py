@@ -20,7 +20,8 @@ REPO = Path(__file__).resolve().parents[1]
 EXPECTED = {"scan", "scan_status", "query_jobs", "list_companies",
             "registry_health", "verify_boards", "discover_company",
             "get_run_history", "get_scan_results",
-            "mark_jobs", "tracked_jobs", "scan_browser"}
+            "mark_jobs", "tracked_jobs", "scan_browser",
+                     "add_company", "update_company", "remove_company"}
 
 
 def _params(registry: Path, db: Path, results: Path) -> StdioServerParameters:
@@ -41,7 +42,7 @@ def _payload(res):
 
 
 @pytest.mark.asyncio
-async def test_server_starts_and_serves_all_twelve_tools(registry_csv, seeded_db,
+async def test_server_starts_and_serves_all_fifteen_tools(registry_csv, seeded_db,
                                                        tmp_path):
     async with stdio_client(_params(registry_csv, seeded_db,
                                     tmp_path / "results")) as (r, w):

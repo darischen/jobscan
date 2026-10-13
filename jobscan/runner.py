@@ -209,6 +209,21 @@ async def _one(client: httpx.AsyncClient, sem: asyncio.Semaphore, row: dict[str,
             on_board_done(row["company"], len(jobs))
 
 
+async def probe(row: dict[str, Any], timeout: float = 45.0) -> tuple[int, str | None]:
+    """Run one row's adapter once: (postings it returned, error or None).
+
+    The board's own count, before classification or the US filter, which is
+    what says whether a registry row points at a real board.
+    """
+    async with httpx.AsyncClient(timeout=timeout, follow_redirects=True,
+                                 headers=HEADERS) as client:
+        try:
+            jobs = await TIER_A[row["ats"]](client, row["company"], dict(row))
+        except Exception as e:  # noqa: BLE001
+            return 0, f"{type(e).__name__}: {e}"
+    return len(jobs), None
+
+
 async def scan(rows: list[dict[str, Any]], concurrency: int = 20, timeout: float = 30.0,
                retries: int = 1,
                on_board_done: Callable[[str, int], None] | None = None) -> tuple[list[Job], list[tuple[str, str, str]]]:

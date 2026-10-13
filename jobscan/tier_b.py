@@ -57,7 +57,7 @@ import json
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import urlsplit
 
 from . import cli, registry, runner
@@ -74,7 +74,7 @@ DEFAULT_MAX_PAGES = 50
 # selectors inside the card; the link is the card itself when it is an <a>,
 # else the first <a> inside it. `el.href` is already absolute. textContent,
 # not innerText: innerText applies CSS, and Lever uppercases its locations.
-_CARDS_JS = """(cards, cfg) => cards.map(card => {
+_CARDS_JS = r"""(cards, cfg) => cards.map(card => {
     const text = el => el ? (el.textContent || "").replace(/\s+/g, " ").trim() : "";
     const link = card.matches("a[href]") ? card : card.querySelector("a[href]");
     return {
@@ -298,10 +298,14 @@ async def fetch(browser: Any, row: dict[str, Any], cfg: dict[str, Any]) -> list[
 
 # -------------------------------------------------------------------- runner
 async def scan(rows: list[dict[str, Any]], selectors: dict[str, dict[str, Any]],
-               headed: bool = False) -> tuple[list[Job], list[tuple[str, str, str]]]:
+               headed: bool = False,
+               on_board_done: Callable[[str, int], None] | None = None,
+               ) -> tuple[list[Job], list[tuple[str, str, str]]]:
     """Fetch every row that has a config; same return shape as runner.scan.
 
     One browser for the run, visible if any selected board asks for it.
+    on_board_done(company, postings) fires as each board finishes, failed
+    ones included, as in runner.scan.
     """
     errors: list[tuple[str, str, str]] = []
     todo = []
@@ -326,7 +330,11 @@ async def scan(rows: list[dict[str, Any]], selectors: dict[str, dict[str, Any]],
                 except Exception as e:  # noqa: BLE001
                     errors.append((row["company"], row["ats"],
                                    f"{type(e).__name__}: {str(e).splitlines()[0][:200]}"))
-                    return []
+                    found = []
+                finally:
+                    if on_board_done is not None:
+                        on_board_done(row["company"], len(found) if "found" in locals() else 0)
+                return found
         batches = await asyncio.gather(*(one(r) for r in todo))
     return runner.finalize([j for b in batches for j in b]), errors
 
@@ -379,7 +387,20 @@ def main(argv: list[str] | None = None) -> int:
     command = args.command or cli.invocation()
     started_dt = datetime.now().astimezone()
     started = now()
-    jobs, errors = asyncio.run(scan(tier_b, selectors, headed=args.headed))
+    # With --json a caller is reading stdout as one document, so progress
+    # goes to stderr, one line per finished board: "progress 1/2 Tesla 5401".
+    # The MCP server relays these as progress notifications.
+    todo = sum(1 for r in tier_b if r["company"] in selectors)
+    done = 0
+
+    def progress(company: str, n: int) -> None:
+        nonlocal done
+        done += 1
+        if args.json:
+            print(f"progress {done}/{todo} {company} {n}", file=sys.stderr, flush=True)
+
+    jobs, errors = asyncio.run(scan(tier_b, selectors, headed=args.headed,
+                                    on_board_done=progress))
 
     buckets = None if args.bucket == "all" else \
         tuple(b.strip() for b in args.bucket.split(",") if b.strip())

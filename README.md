@@ -328,7 +328,7 @@ session with no further setup. Paths come from the environment:
 | `JOBSCAN_RESULTS` | `results` |
 | `JOBSCAN_SELECTORS` | `registry/selectors.json` |
 
-Twelve tools:
+Fifteen tools:
 
 | Tool | Network | What it does |
 |---|---|---|
@@ -342,6 +342,9 @@ Twelve tools:
 | `registry_health` | no | Baseline coverage and freshness |
 | `verify_boards` | yes | The seven health checks per board |
 | `discover_company` | yes | Careers URL to a registry row |
+| `add_company` | yes | Confirm a board live, then add its row |
+| `update_company` | maybe | Change a row; rechecks the board if it now points elsewhere |
+| `remove_company` | no | Delete a row |
 | `get_run_history` | no | The `runs` table |
 | `get_scan_results` | no | A past results folder and its sidecar |
 
@@ -352,6 +355,27 @@ does, so behaviour cannot drift between the CLI and the tools.
 Scans of fewer than 10 boards block and return rows. Larger selections return
 a `scan_id` immediately, because the full registry takes minutes and one slow
 board would otherwise push the call past its timeout and lose the whole run.
+`scan_status` then shows how many boards are done, the last few finished with
+their counts, and the elapsed time. `scan(wait=true)` blocks on any selection
+instead.
+
+**Progress.** A blocking `scan`, and `scan_browser`, send MCP progress
+notifications as boards finish ("37/118 boards; last NVIDIA: 2701
+postings"), to any client that asked for them with a progress token. Clients
+that did not ask see nothing different.
+
+**Registry writes.** `add_company` takes either a full row (`ats` plus its
+fields) or a careers `url` to discover the board from, and writes nothing
+until the board's own adapter reads at least one posting from it live. A
+discovery that matched only a partial name, a second row for the same
+company and ats, and a tier B row (unless `allow_tier_b`) are refused.
+`update_company` changes named fields of one row and reconfirms the board
+when `ats`, `token`, `tenant`, `site`, `wd`, `host` or `query` changes.
+`remove_company` deletes a row. All three edit `registry/companies.csv` line
+by line, so every row they do not touch stays byte for byte as it was, and
+validate the result before it replaces the file. `dry_run` checks without
+writing. A new row has no health baseline until
+`python tools/verify.py --company NAME --baseline`.
 
 `scan`'s `limit` caps the returned array only. It never limits what is
 scanned, stored, or written to the CSV, and `shown` always reports the true

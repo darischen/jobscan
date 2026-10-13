@@ -28,7 +28,7 @@ def child(mcp_env, monkeypatch):
     calls: list[list[str]] = []
     state = {"code": 0, "out": json.dumps(SUMMARY), "err": ""}
 
-    async def fake(args: list[str]):
+    async def fake(args: list[str], on_progress=None):
         calls.append(args)
         return state["code"], state["out"], state["err"]
 

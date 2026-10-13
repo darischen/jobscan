@@ -242,8 +242,31 @@ Owner decisions, 2026-10-13, are recorded on each item.
       `mark_jobs` and `tracked_jobs`, and `query_jobs` returns each row's
       key and marks and filters on them. A posting is named by url or key.
       Marks survive rescans and stay on a posting after it closes.
-- [ ] **MCP extensions**: HTTP transport, Docker, progress streaming, registry
-      writes. Undecided.
+- [x] **MCP extensions**: HTTP transport, Docker, progress streaming, registry
+      writes. Owner decision 2026-10-13: build progress streaming and registry
+      writes; **won't do** HTTP transport or Docker (scans run only from a
+      local session, and Tesla's visible browser window cannot run in a
+      container).
+      Done 2026-10-13. Progress: a blocking `scan` (any size with
+      `wait=true`) and `scan_browser` send MCP progress notifications as
+      boards finish; `scan_status` shows the last boards finished and the
+      elapsed time. Registry writes: `add_company` (a full row, or discovery
+      from a careers url), `update_company`, `remove_company`. Nothing is
+      written until the board's adapter reads at least one posting live;
+      edits touch one line of the CSV and are validated before they land.
+      Checked end to end through a stdio server: Anduril added (greenhouse
+      `andurilindustries`, 2,491 postings), a made-up token refused on its
+      404, rows updated and removed, the copy byte-identical afterwards.
+- [x] **Card mode checked live** (2026-10-13): Lever (Palantir, 312 of 312)
+      and Greenhouse (Anthropic, 644 of 644 across 13 pages), link for link
+      against their HTTP adapters. It found two bugs, both fixed: pagination
+      stopped at page one (the list re-renders after load, detaching the
+      button) and locations came out uppercased (innerText applies CSS).
+- [x] **Full checks after the US filter change** (2026-10-13): a full tier A
+      scan, 118 boards, 0 errors, 116,422 postings; the new filter drops none
+      the old one kept, so the change only affected Tesla. `verify.py` on all
+      118: 116 ok, Wing 29 -> 45 (real growth), Oracle a read timeout that
+      passed on retry (2,363).
 - [x] **Daily scan**: won't build a cron job or a hosted schedule. Decision:
       the daily scan is run from an interactive session connected to the MCP
       server (`scan`, then `get_scan_results`), nothing outside of that.

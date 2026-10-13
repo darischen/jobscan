@@ -167,7 +167,7 @@ def test_main_stores_only_boards_that_answered(monkeypatch, tmp_path: Path, caps
     st.db.commit()
     st.close()
 
-    async def fake_scan(rows, selectors, headed=False):
+    async def fake_scan(rows, selectors, headed=False, on_board_done=None):
         jobs = tier_b.jobs_from_json(ROW, JSON_CFG, STATE)
         return jobs, [("Broken", "custom", "RuntimeError: boom")]
     monkeypatch.setattr(tier_b, "scan", fake_scan)
