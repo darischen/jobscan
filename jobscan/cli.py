@@ -179,6 +179,10 @@ def build_parser() -> argparse.ArgumentParser:
   jobscan --since 7                    print only postings first seen in 7 days
   jobscan --bucket all -o dump.csv     no level filter, write to a file
   jobscan --list                       show the registry, run nothing
+  jobscan --apply URL                  record an application, run nothing
+  jobscan --star URL --apply URL       both marks in one call
+  jobscan --tracked                    everything applied to or starred
+  jobscan --hide-applied               scan, leave out what you applied to
 """,
     )
     src = p.add_argument_group("source")
@@ -201,6 +205,22 @@ def build_parser() -> argparse.ArgumentParser:
                       help="only postings first seen within DAYS")
     filt.add_argument("--title", metavar="REGEX",
                       help="extra regex the title must match")
+
+    filt.add_argument("--hide-applied", action="store_true",
+                      help="leave out postings marked as applied")
+
+    trk = p.add_argument_group(
+        "tracking", "name a posting by its link or key; none of these scan")
+    trk.add_argument("--apply", nargs="+", metavar="URL", default=[],
+                     help="mark postings as applied to, stamped now")
+    trk.add_argument("--unapply", nargs="+", metavar="URL", default=[],
+                     help="clear the applied mark")
+    trk.add_argument("--star", nargs="+", metavar="URL", default=[],
+                     help="star postings to come back to")
+    trk.add_argument("--unstar", nargs="+", metavar="URL", default=[],
+                     help="clear the star")
+    trk.add_argument("--tracked", action="store_true",
+                     help="list postings applied to or starred, closed ones too")
 
     out = p.add_argument_group("output")
     out.add_argument("--out", "-o", metavar="PATH",
@@ -271,8 +291,51 @@ def emit(records: list[dict[str, Any]], fmt: str, dest: Any) -> None:
                        f"{r['url']}\n")
 
 
+def emit_tracked(records: list[dict[str, Any]], dest: Any) -> None:
+    """One line per tracked posting: its marks, whether it is still open."""
+    if not records:
+        dest.write("nothing applied to or starred\n")
+        return
+    wco = max(len(r["company"]) for r in records)
+    wti = min(58, max(len(r["title"]) for r in records))
+    for r in records:
+        marks = ", ".join(m for m in (
+            f"applied {r['applied_at'][:10]}" if r.get("applied_at") else "",
+            "starred" if r.get("starred") else "") if m)
+        state = f"closed {r['closed_at'][:10]}" if r.get("closed_at") else "open"
+        dest.write(f"{r['company']:<{wco}}  {r['title'][:wti]:<{wti}}  "
+                   f"{marks:<27}  {state:<17}  {r['url']}\n")
+
+
+def track(args: argparse.Namespace) -> int:
+    """The tracking flags. Reads and writes sqlite only, never a board."""
+    store = Store(args.db)
+    try:
+        unknown: list[str] = []
+        for refs, change, verb in (
+                (args.apply, {"applied": True}, "applied"),
+                (args.unapply, {"applied": False}, "applied mark cleared"),
+                (args.star, {"starred": True}, "starred"),
+                (args.unstar, {"starred": False}, "star cleared")):
+            if not refs:
+                continue
+            done = store.mark(refs, **change)
+            unknown += done["unknown"]
+            for r in done["jobs"]:
+                print(f"{verb}: {r['company']}  {r['title']}", file=sys.stderr)
+        if args.tracked:
+            emit_tracked(store.tracked(), sys.stdout)
+    finally:
+        store.close()
+    for ref in unknown:
+        print(f"no stored posting matches {ref}", file=sys.stderr)
+    return 1 if unknown else 0
+
+
 def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
+    if args.apply or args.unapply or args.star or args.unstar or args.tracked:
+        return track(args)
     reg_path = args.file or DEFAULT_REGISTRY
 
     try:
@@ -335,6 +398,7 @@ def main(argv=None) -> int:
             buckets=buckets, since=since,
             only_new_keys=stats["new_keys"] if args.new_only else None,
             companies=sorted({r["company"] for r in tier_a}),
+            applied=False if args.hide_applied else None,
         )
         store.record_run(started, len(tier_a), len(jobs),
                          stats["new"], stats["closed"], len(errors),

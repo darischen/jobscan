@@ -212,8 +212,13 @@ Owner decisions, 2026-10-13, are recorded on each item.
       runner for boards that need a browser. Decision: build it. Tesla is the
       only row today, but other board families will not answer plain HTTP
       either, and this is where they go.
-- [ ] **Application tracking**: `applied_at` and `starred` exist in the `jobs`
-      schema and are unused. Decision: both a CLI command and MCP tools.
+- [x] **Application tracking**: `applied_at` and `starred` existed in the
+      `jobs` schema unused. Decision: both a CLI command and MCP tools.
+      Done 2026-10-13: `Store.mark` / `Store.tracked`; CLI `--apply`,
+      `--unapply`, `--star`, `--unstar`, `--tracked`, `--hide-applied`; MCP
+      `mark_jobs` and `tracked_jobs`, and `query_jobs` returns each row's
+      key and marks and filters on them. A posting is named by url or key.
+      Marks survive rescans and stay on a posting after it closes.
 - [ ] **MCP extensions**: HTTP transport, Docker, progress streaming, registry
       writes. Undecided.
 - [x] **Daily scan**: won't build a cron job or a hosted schedule. Decision:

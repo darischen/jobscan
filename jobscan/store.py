@@ -133,12 +133,82 @@ class Store:
         )
         self.db.commit()
 
+    def _find(self, ref: str) -> sqlite3.Row | None:
+        """One posting by key or url. A url is tried as given, then with a
+        trailing slash added or removed, since that is how a pasted link
+        most often differs from the stored one."""
+        ref = ref.strip()
+        for candidate in (ref, ref.rstrip("/"), ref.rstrip("/") + "/"):
+            row = self.db.execute(
+                "SELECT * FROM jobs WHERE key=? OR url=?",
+                (candidate, candidate)).fetchone()
+            if row is not None:
+                return row
+        return None
+
+    def mark(self, refs: list[str], applied: bool | None = None,
+             starred: bool | None = None) -> dict[str, Any]:
+        """Set or clear applied_at and starred on postings named by key or url.
+
+        None leaves a field alone. Applying twice keeps the first time, so
+        the date stays the day the application went in. Open and closed
+        postings alike: an application outlives its posting. References
+        that match nothing come back in `unknown` rather than passing
+        silently.
+        """
+        ts = now()
+        done, unknown = [], []
+        for ref in refs:
+            row = self._find(ref)
+            if row is None:
+                unknown.append(ref)
+                continue
+            if applied is True:
+                self.db.execute(
+                    "UPDATE jobs SET applied_at=COALESCE(applied_at, ?) WHERE key=?",
+                    (ts, row["key"]))
+            elif applied is False:
+                self.db.execute("UPDATE jobs SET applied_at=NULL WHERE key=?",
+                                (row["key"],))
+            if starred is not None:
+                self.db.execute("UPDATE jobs SET starred=? WHERE key=?",
+                                (int(starred), row["key"]))
+            done.append(dict(self.db.execute(
+                "SELECT * FROM jobs WHERE key=?", (row["key"],)).fetchone()))
+        self.db.commit()
+        return {"jobs": done, "unknown": unknown}
+
+    def tracked(self, applied: bool | None = None, starred: bool | None = None,
+                include_closed: bool = True) -> list[dict[str, Any]]:
+        """Postings applied to or starred, closed ones included by default.
+
+        applied / starred narrow to one mark; with neither, either mark
+        qualifies.
+        """
+        sql = "SELECT * FROM jobs WHERE (applied_at IS NOT NULL OR starred=1)"
+        if applied is not None:
+            sql += f" AND applied_at IS {'NOT ' if applied else ''}NULL"
+        if starred is not None:
+            sql += f" AND COALESCE(starred, 0)={int(starred)}"
+        if not include_closed:
+            sql += " AND closed_at IS NULL"
+        sql += " ORDER BY COALESCE(applied_at, first_seen) DESC, company, title"
+        return [dict(r) for r in self.db.execute(sql)]
+
     def open_jobs(self, buckets: tuple[str, ...] | None = None, since: str | None = None, only_new_keys: list[str] | None = None,
-                  companies: list[str] | None = None) -> list[dict[str, Any]]:
+                  companies: list[str] | None = None,
+                  applied: bool | None = None,
+                  starred: bool | None = None) -> list[dict[str, Any]]:
         """Open postings. `companies` scopes results to what this run scanned,
-        so --company nvidia never leaks rows from other boards in the db."""
+        so --company nvidia never leaks rows from other boards in the db.
+        `applied` / `starred` keep only postings with (True) or without
+        (False) that mark."""
         sql = "SELECT * FROM jobs WHERE closed_at IS NULL"
         args: list = []
+        if applied is not None:
+            sql += f" AND applied_at IS {'NOT ' if applied else ''}NULL"
+        if starred is not None:
+            sql += f" AND COALESCE(starred, 0)={int(starred)}"
         if companies is not None:
             if companies:
                 sql += f" AND company IN ({','.join('?' * len(companies))})"

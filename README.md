@@ -245,6 +245,27 @@ shell and reproduces the run.
 
 ---
 
+## Tracking applications
+
+Name a posting by its link (or its key) to record that you applied, or to
+star it for later. None of these flags scan; they read and write sqlite only.
+
+```bash
+jobscan --apply https://boards.greenhouse.io/acme/jobs/123
+jobscan --star URL1 URL2
+jobscan --unapply URL            # and --unstar
+jobscan --tracked                # applied to or starred, with open / closed
+jobscan --hide-applied           # a normal scan, minus what you applied to
+```
+
+The marks survive every later scan. They also stay on a posting after its
+requisition leaves the board, so `--tracked` shows `closed 2026-10-20` next
+to an application whose req has gone. Applying twice keeps the first date.
+The MCP tools `mark_jobs` and `tracked_jobs` do the same from a session, and
+`query_jobs` takes `applied` / `starred` filters.
+
+---
+
 ## Architecture
 
 ```
@@ -306,13 +327,15 @@ session with no further setup. Paths come from the environment:
 | `JOBSCAN_DB` | `data/jobs.db` |
 | `JOBSCAN_RESULTS` | `results` |
 
-Nine tools:
+Eleven tools:
 
 | Tool | Network | What it does |
 |---|---|---|
 | `scan` | yes | Fetch boards, classify, store, write a results CSV |
 | `scan_status` | no | Progress and result of a background scan |
 | `query_jobs` | no | Search stored open postings |
+| `mark_jobs` | no | Record an application, or star a posting |
+| `tracked_jobs` | no | Everything applied to or starred, closed ones too |
 | `list_companies` | no | The registry, with tier and `implemented` |
 | `registry_health` | no | Baseline coverage and freshness |
 | `verify_boards` | yes | The seven health checks per board |

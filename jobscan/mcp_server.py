@@ -133,8 +133,17 @@ def _since_iso(days: int | None) -> str | None:
 def _job_rows(records: list[dict[str, Any]], limit: int) -> tuple[list[dict], bool]:
     cols = ("company", "ticker", "title", "location", "bucket", "ats",
             "posted_at", "first_seen", "url")
-    out = [{k: r.get(k, "") for k in cols} for r in records[:limit]]
+    out = [{k: r.get(k, "") for k in cols} | _marks(r) for r in records[:limit]]
     return out, len(records) > limit
+
+
+def _marks(r: dict[str, Any]) -> dict[str, Any]:
+    """The tracking fields of a stored row. Empty for a store=False scan,
+    whose rows never touched sqlite and have no key."""
+    if "key" not in r:
+        return {}
+    return {"key": r["key"], "applied_at": r.get("applied_at"),
+            "starred": bool(r.get("starred"))}
 
 
 def _describe(name: str, **kw: Any) -> str:
@@ -329,7 +338,9 @@ def scan_status(scan_id: str | None = None) -> dict[str, Any]:
 # ---------------------------------------------------------------------- query
 @tool
 def query_jobs(company: str | None = None, buckets: list[str] | None = None,
-               since: int | None = None, limit: int = DEFAULT_LIMIT) -> dict[str, Any]:
+               since: int | None = None, limit: int = DEFAULT_LIMIT,
+               applied: bool | None = None,
+               starred: bool | None = None) -> dict[str, Any]:
     """Search already-stored open postings. Reads sqlite, touches no network.
 
     Returns postings that were open as of the last scan that covered them.
@@ -338,17 +349,78 @@ def query_jobs(company: str | None = None, buckets: list[str] | None = None,
     company: exact company name as stored. Omit for all.
     buckets: as in scan. Defaults to explicit_early, unleveled, senior.
     since: only postings first seen within this many days.
+    applied: False leaves out postings already applied to, True keeps only
+        those. Omit for both.
+    starred: the same for the star.
     """
     st = Store(DB)
     try:
         records = st.open_jobs(buckets=_buckets(buckets),
                               since=_since_iso(since),
-                              companies=[company] if company else None)
+                              companies=[company] if company else None,
+                              applied=applied, starred=starred)
     finally:
         st.close()
     rows, truncated = _job_rows(records, limit)
     return {"ok": True, "count": len(records), "returned": len(rows),
             "truncated": truncated, "jobs": rows}
+
+
+# ------------------------------------------------------------------- tracking
+def _tracked_rows(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    cols = ("company", "ticker", "title", "location", "bucket", "url",
+            "first_seen", "closed_at")
+    return [{k: r.get(k, "") for k in cols} | _marks(r) for r in records]
+
+
+@tool
+def mark_jobs(jobs: list[str], applied: bool | None = None,
+              starred: bool | None = None) -> dict[str, Any]:
+    """Record that postings were applied to, or star them to come back to.
+
+    Writes sqlite only. The marks survive every later scan, and stay on a
+    posting after its requisition closes.
+
+    jobs: each posting's url, or its key, as returned by scan, query_jobs
+        and tracked_jobs. Anything that matches no stored posting is
+        returned in `unknown` and changes nothing.
+    applied: True stamps the current time (a posting already marked keeps
+        its first date), False clears it. Omit to leave it alone.
+    starred: True or False. Omit to leave it alone.
+    """
+    if applied is None and starred is None:
+        return {"ok": False, "error": "nothing to change: pass applied "
+                                      "and/or starred"}
+    st = Store(DB)
+    try:
+        done = st.mark(jobs, applied=applied, starred=starred)
+    finally:
+        st.close()
+    return {"ok": True, "updated": len(done["jobs"]),
+            "unknown": done["unknown"], "jobs": _tracked_rows(done["jobs"])}
+
+
+@tool
+def tracked_jobs(applied: bool | None = None, starred: bool | None = None,
+                 include_closed: bool = True) -> dict[str, Any]:
+    """Postings that were applied to or starred. Reads sqlite, no network.
+
+    Closed postings are included by default, with closed_at set: a
+    requisition disappearing from its board is worth knowing about for
+    something you applied to.
+
+    applied: True for only those applied to, False for only those not
+        (so starred but not yet applied). Omit for either mark.
+    starred: the same for the star.
+    include_closed: False drops postings no longer on their board.
+    """
+    st = Store(DB)
+    try:
+        records = st.tracked(applied=applied, starred=starred,
+                             include_closed=include_closed)
+    finally:
+        st.close()
+    return {"ok": True, "count": len(records), "jobs": _tracked_rows(records)}
 
 
 @tool
