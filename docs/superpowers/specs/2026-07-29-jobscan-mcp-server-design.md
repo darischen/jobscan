@@ -401,6 +401,10 @@ README.md                                     EDIT (MCP section)
 
 ## Out of scope
 
+Status 2026-10-13: everything below except `tools/seed.py` was later built
+or decided against; see `BACKLOG.md` section 7. The five defects above are
+all fixed.
+
 - Tier B implementation and the missing `tier_b.py`.
 - Registry writes from any tool.
 - Application tracking via `applied_at` and `starred`.

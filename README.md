@@ -13,7 +13,12 @@ python jobscan.py --new-only                   # only what appeared since last r
 python tools/verify.py                         # check every registry row still resolves
 ```
 
-Verified working on 20 boards covering 12,344 live postings, 100 percent of
+As of 2026-10-13: 120 registry rows, 119 read over plain HTTP and one
+(Tesla) through a browser. The 119 hold about 118,000 postings, 92 percent
+carrying a real posted date from the board; seven boards publish none.
+`BACKLOG.md` is the record of what was built and decided.
+
+Originally verified on 20 boards covering 12,344 live postings, 100 percent of
 them carrying a real posted date from the ATS.
 
 ---
@@ -75,9 +80,21 @@ python tools/discover.py --batch pending.txt >> registry/companies.csv
 
 `pending.txt` is `Company<TAB>TICKER<TAB>URL` per line, ticker optional, which is what you get pasting
 two columns out of a spreadsheet. The tool follows redirects, reads the
-final host and page body, and prints a finished CSV row. It correctly
-identified Workday tenants, an Oracle host, and pushed iCIMS, Eightfold,
-and Phenom sites to tier B on the seed set.
+final host and page body, and prints a finished CSV row. Every row it
+writes as tier A was confirmed by reading real postings through that
+board's adapter; anything it cannot confirm is written as `custom` (tier B).
+
+To start from an index rather than a list you type, `tools/seed.py` writes
+`pending.txt` from the S&P 500 or Nasdaq-100 constituent tables on
+Wikipedia (it needs `pip install pandas lxml`, not in requirements.txt):
+
+```bash
+python tools/seed.py --index nasdaq100 -o pending.txt
+python tools/discover.py --batch pending.txt >> registry/companies.csv
+```
+
+From an MCP session, `add_company` does the same for one company and writes
+the row itself.
 
 Then always run `python tools/verify.py`. Tokens rot. On the seed registry
 it caught four wrong rows in one pass: DoorDash's Greenhouse token is

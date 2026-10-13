@@ -1,5 +1,16 @@
 # Jobscan MCP Server Implementation Plan
 
+> **Superseded.** This was the first plan, July 2026. The server was built
+> from `docs/superpowers/specs/2026-07-29-jobscan-mcp-server-design.md`
+> instead, and has since grown past both. What exists today is in the
+> README's "MCP server" section (15 tools). From this plan: `scan_company`
+> and `scan_registry` became one `scan`; `add_company` writes the row
+> itself after confirming the board; `get_stats` and the `jobs://`,
+> `scans://`, `registry://` and `results://` resources were never built,
+> since `query_jobs`, `get_run_history`, `list_companies` and
+> `get_scan_results` return the same data. HTTP transport and Docker were
+> decided against on 2026-10-13. Kept for history.
+
 ## Overview
 Convert jobscan into an MCP (Model Context Protocol) server that exposes scanning, querying, and registry management as tools and resources. Allows Claude and any AI agent to interact with jobscan programmatically.
 
