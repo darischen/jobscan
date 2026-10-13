@@ -389,7 +389,10 @@ def main(argv=None) -> int:
         # list would mark every senior and role_miss req dead on a
         # --bucket explicit_early run. Bucket selection is a display
         # concern, handled by open_jobs below.
-        stats = store.upsert(jobs, {r["company"] for r in tier_a})
+        # A board that errored is left out for the same reason: it returned
+        # nothing, which is not the same as listing nothing.
+        stats = store.upsert(jobs, {r["company"] for r in tier_a}
+                             - {e[0] for e in errors})
         since = None
         if args.since:
             since = (datetime.now(timezone.utc)

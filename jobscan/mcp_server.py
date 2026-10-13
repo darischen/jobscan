@@ -172,7 +172,10 @@ async def _run_scan(state: ScanState, tier_a: list[dict[str, Any]],
             # Every job the boards returned goes in, not just the requested
             # buckets: upsert closes whatever it does not see, so a filtered
             # list would mark every senior req dead on an early-career scan.
-            stats = st.upsert(jobs, {r["company"] for r in tier_a})
+            # Nor a board that errored: it returned nothing, which is not
+            # the same as listing nothing.
+            stats = st.upsert(jobs, {r["company"] for r in tier_a}
+                              - {e[0] for e in errors})
             records = st.open_jobs(
                 buckets=buckets, since=since,
                 only_new_keys=stats["new_keys"] if new_only else None,
