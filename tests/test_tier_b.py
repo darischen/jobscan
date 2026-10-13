@@ -80,6 +80,19 @@ def test_cards_become_jobs_deduped_on_their_link():
     assert jobs[0].raw_id == "" and jobs[0].location == "Austin, TX"
 
 
+def test_capture_matches_only_the_pages_own_host_and_path():
+    page = "https://www.tesla.com/careers/search/?site=US"
+    api = "https://www.tesla.com/cua-api/apps/careers/state"
+    assert tier_b.is_capture(JSON_CFG, page, api)
+    assert not tier_b.is_capture(
+        JSON_CFG, page, "https://tracker.example/e?u=https://www.tesla.com/cua-api/apps/careers/state")
+    assert not tier_b.is_capture(JSON_CFG, page, "https://www.tesla.com.evil.example/cua-api/apps/careers/state")
+    assert not tier_b.is_capture(JSON_CFG, page, "https://www.tesla.com/x?next=cua-api/apps/careers/state")
+    other = {**JSON_CFG, "capture_host": "api.tesla.com"}
+    assert tier_b.is_capture(other, page, "https://api.tesla.com/cua-api/apps/careers/state")
+    assert not tier_b.is_capture(other, page, api)
+
+
 # -------------------------------------------------------------------- config
 def test_selectors_skip_comment_keys_and_reject_a_config_with_no_mode(tmp_path: Path):
     path = tmp_path / "selectors.json"

@@ -14,7 +14,8 @@ one entry per company, keyed by the registry company name, in one of two
 modes:
 
   capture   the page fetches its listings as JSON; wait for that response
-            and read it. Tesla: one 1.6 MB payload, every listing in it.
+            and read it. Only a response from the page's own host whose
+            path contains the string counts ("capture_host" overrides). Tesla: one 1.6 MB payload, every listing in it.
 
       "Tesla": {
         "headed": true,
@@ -51,6 +52,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from . import cli, registry, runner
 from .core import DEFAULT_KEEP, Job
@@ -195,12 +197,25 @@ class _launch:
         return False
 
 
+def is_capture(cfg: dict[str, Any], page_url: str, response_url: str) -> bool:
+    """Whether a response is the one the entry names.
+
+    Same host as the page (or cfg["capture_host"]), and `capture` in the
+    path. A bare substring test on the whole url also matched third-party
+    calls that merely carry the string, such as an analytics beacon with
+    the page address in its query, and would have read that as the board.
+    """
+    want = (cfg.get("capture_host") or urlsplit(page_url).hostname or "").lower()
+    got = urlsplit(response_url)
+    return (got.hostname or "").lower() == want and cfg["capture"] in got.path
+
+
 async def _capture(page: Any, url: str, cfg: dict[str, Any], timeout: int) -> Any:
     """Load the page and return the JSON response whose url contains
     cfg["capture"]. A refused navigation is reported as such, since waiting
     out the timeout for a response that will never come hides the cause."""
     async with page.expect_response(
-            lambda r: cfg["capture"] in r.url, timeout=timeout) as waiting:
+            lambda r: is_capture(cfg, url, r.url), timeout=timeout) as waiting:
         nav = await page.goto(url, wait_until="domcontentloaded", timeout=timeout)
         if nav is not None and nav.status >= 400:
             raise RuntimeError(f"HTTP {nav.status} loading {url}")
