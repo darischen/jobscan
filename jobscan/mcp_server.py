@@ -20,6 +20,7 @@ from __future__ import annotations
 import asyncio
 import csv
 import functools
+import ipaddress
 import json
 import os
 import re
@@ -31,6 +32,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable
+from urllib.parse import urlsplit
 
 import httpx
 from mcp.server.fastmcp import Context, FastMCP
@@ -765,6 +767,40 @@ async def _check_board(row: dict[str, Any], allow_tier_b: bool,
     return n, None
 
 
+def _local_address(fields: dict[str, Any]) -> str | None:
+    """The first host or url value pointing at this machine or a private
+    network, or a url that is not http(s); None when all are public.
+
+    The registry tools fetch whatever host they are given. They run inside
+    a session that also reads careers pages, so a page's text must not be
+    able to turn them on localhost, the LAN or a cloud metadata address.
+    Names are checked as written; a public name that resolves to a private
+    address is not caught, which DNS would need to settle.
+    """
+    for key in ("host", "url", "careers_url"):
+        value = (fields.get(key) or "").strip()
+        if not value:
+            continue
+        if key == "host":
+            name = urlsplit(f"//{value}").hostname or ""
+        else:
+            parts = urlsplit(value)
+            if parts.scheme not in ("http", "https"):
+                return f"{key} {value!r}"
+            name = parts.hostname or ""
+        name = name.lower().rstrip(".")
+        if name in ("localhost", "") or name.endswith((".localhost", ".local",
+                                                       ".internal")):
+            return f"{key} {value!r}"
+        try:
+            ip = ipaddress.ip_address(name)
+        except ValueError:
+            continue
+        if not ip.is_global:
+            return f"{key} {value!r}"
+    return None
+
+
 def _baseline_hint(company: str) -> str:
     return (f"record its baseline with: python tools/verify.py "
             f"--company {json.dumps(company)} --baseline")
@@ -797,6 +833,9 @@ async def add_company(name: str, ats: str = "", token: str = "", tenant: str = "
     """
     from tools import discover
 
+    bad = _local_address({"host": host, "url": url, "careers_url": careers_url})
+    if bad:
+        return {"ok": False, "error": f"refusing a local or private address: {bad}"}
     discovered = not ats
     if discovered:
         async with httpx.AsyncClient(timeout=25, follow_redirects=True) as c:
@@ -862,6 +901,9 @@ async def update_company(company: str, row_ats: str | None = None,
         notes=notes).items() if v is not None}
     if not changes:
         return {"ok": False, "error": "nothing to change"}
+    bad = _local_address(changes)
+    if bad:
+        return {"ok": False, "error": f"refusing a local or private address: {bad}"}
     current = registry.find_row(REGISTRY, company, row_ats)
     new = current | {k: (v.lower() if k == "ats" else v) for k, v in changes.items()}
     postings = None

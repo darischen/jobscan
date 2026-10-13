@@ -204,3 +204,27 @@ async def test_remove_company(mcp_env, probe):
     d = await call(mcp_env, "remove_company", company="Co4")
     assert d["ok"] and d["removed"]["company"] == "Co4"
     assert not registry.select(registry.load(mcp_env.REGISTRY), company="Co4")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("field,value", [
+    ("host", "localhost"),
+    ("host", "127.0.0.1"),
+    ("host", "169.254.169.254"),
+    ("host", "10.0.0.5"),
+    ("host", "[::1]"),
+    ("url", "http://192.168.1.1/careers"),
+    ("careers_url", "file:///etc/passwd"),
+])
+async def test_registry_tools_refuse_local_and_private_addresses(mcp_env, probe, field, value):
+    """add_company and update_company send requests to whatever host they
+    are given; a careers page read during a session must not be able to
+    point them at this machine or its network."""
+    _, asked = probe
+    d = await call(mcp_env, "add_company", name="Sneaky", ats="custom",
+                   allow_tier_b=True, **{field: value})
+    assert not d["ok"] and "address" in d["error"]
+    if field != "url":
+        d = await call(mcp_env, "update_company", company="Co3", **{field: value})
+        assert not d["ok"] and "address" in d["error"]
+    assert asked == []
