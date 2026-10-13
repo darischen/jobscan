@@ -124,6 +124,15 @@ def probe(mcp_env, monkeypatch):
         return (n, None) if n >= 0 else (0, "HTTPStatusError: 404")
 
     monkeypatch.setattr(mcp_env.runner, "probe", fake)
+
+    async def resolve(name):
+        """No DNS in tests: one name points inside, the rest at a public IP."""
+        if name == "careers.rebound.example":
+            return ["10.1.2.3"]
+        if name == "nowhere.invalid":
+            raise OSError("no such host")
+        return ["93.184.216.34"]
+    monkeypatch.setattr(mcp_env, "_resolve", resolve)
     return counts, asked
 
 
@@ -215,6 +224,8 @@ async def test_remove_company(mcp_env, probe):
     ("host", "[::1]"),
     ("url", "http://192.168.1.1/careers"),
     ("careers_url", "file:///etc/passwd"),
+    ("host", "careers.rebound.example"),        # public-looking, private address
+    ("url", "https://nowhere.invalid/jobs"),     # does not resolve
 ])
 async def test_registry_tools_refuse_local_and_private_addresses(mcp_env, probe, field, value):
     """add_company and update_company send requests to whatever host they
@@ -227,4 +238,45 @@ async def test_registry_tools_refuse_local_and_private_addresses(mcp_env, probe,
     if field != "url":
         d = await call(mcp_env, "update_company", company="Co3", **{field: value})
         assert not d["ok"] and "address" in d["error"]
+    assert asked == []
+
+
+@pytest.mark.parametrize("field,value", [
+    ("tenant", "10.0.0.1#"),            # https://10.0.0.1#.wd5.myworkdayjobs.com
+    ("tenant", "evil.example/"),
+    ("wd", "wd5.evil.example@"),
+    ("host", "public.example@10.0.0.1"),
+    ("host", "public.example/x"),
+    ("token", "acme/../../admin"),
+    ("token", "acme?x=@10.0.0.1"),
+    ("site", "a/../../b"),
+    ("site", "x@y"),
+    ("query", "a#@10.0.0.1"),
+])
+def test_board_fields_must_be_plain_so_no_url_can_be_spliced_in(reg: Path, field, value):
+    """Adapters build urls by pasting these fields in. A value carrying url
+    syntax would move the request somewhere else entirely, whatever a check
+    on the parsed host said."""
+    before = reg.read_bytes()
+    with pytest.raises(registry.RegistryError, match=field):
+        registry.add_row(reg, {"company": "Sneaky", "ats": "workday",
+                               "tenant": "acme", "site": "x", "wd": "wd5",
+                               field: value})
+    assert reg.read_bytes() == before
+
+
+def test_every_committed_row_already_meets_the_field_rules():
+    committed = Path(__file__).resolve().parents[1] / "registry" / "companies.csv"
+    for row in registry.load(committed):
+        registry.check_fields(row)
+
+
+@pytest.mark.asyncio
+async def test_a_spliced_field_is_refused_before_the_board_is_ever_fetched(mcp_env, probe):
+    _, asked = probe
+    d = await call(mcp_env, "add_company", name="Sneaky", ats="workday",
+                   tenant="10.0.0.1#", site="x", wd="wd5")
+    assert not d["ok"] and "tenant" in d["error"]
+    d = await call(mcp_env, "update_company", company="Co3", token="co3/../admin")
+    assert not d["ok"] and "token" in d["error"]
     assert asked == []

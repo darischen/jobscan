@@ -767,15 +767,24 @@ async def _check_board(row: dict[str, Any], allow_tier_b: bool,
     return n, None
 
 
-def _local_address(fields: dict[str, Any]) -> str | None:
+async def _resolve(name: str) -> list[str]:
+    """Every address a name resolves to. Separate so tests can stand in."""
+    infos = await asyncio.get_running_loop().getaddrinfo(name, None)
+    return [info[4][0] for info in infos]
+
+
+async def _local_address(fields: dict[str, Any]) -> str | None:
     """The first host or url value pointing at this machine or a private
     network, or a url that is not http(s); None when all are public.
 
     The registry tools fetch whatever host they are given. They run inside
     a session that also reads careers pages, so a page's text must not be
     able to turn them on localhost, the LAN or a cloud metadata address.
-    Names are checked as written; a public name that resolves to a private
-    address is not caught, which DNS would need to settle.
+    A name is resolved and refused if any address it gives is not global,
+    or if it does not resolve at all. Not covered: a redirect from a public
+    board to a private address, and a name re-pointed between this check
+    and the request (DNS rebinding); both would need every adapter's client
+    replaced, and the tools return only a posting count, never a body.
     """
     for key in ("host", "url", "careers_url"):
         value = (fields.get(key) or "").strip()
@@ -793,12 +802,21 @@ def _local_address(fields: dict[str, Any]) -> str | None:
                                                        ".internal")):
             return f"{key} {value!r}"
         try:
-            ip = ipaddress.ip_address(name)
-        except ValueError:
-            continue
-        if not ip.is_global:
+            addresses = [name] if _is_ip(name) else await _resolve(name)
+        except OSError:
+            return f"{key} {value!r} (does not resolve)"
+        if not addresses or any(not ipaddress.ip_address(a.split("%")[0]).is_global
+                                for a in addresses):
             return f"{key} {value!r}"
     return None
+
+
+def _is_ip(name: str) -> bool:
+    try:
+        ipaddress.ip_address(name)
+    except ValueError:
+        return False
+    return True
 
 
 def _baseline_hint(company: str) -> str:
@@ -833,7 +851,7 @@ async def add_company(name: str, ats: str = "", token: str = "", tenant: str = "
     """
     from tools import discover
 
-    bad = _local_address({"host": host, "url": url, "careers_url": careers_url})
+    bad = await _local_address({"host": host, "url": url, "careers_url": careers_url})
     if bad:
         return {"ok": False, "error": f"refusing a local or private address: {bad}"}
     discovered = not ats
@@ -853,6 +871,7 @@ async def add_company(name: str, ats: str = "", token: str = "", tenant: str = "
             tenant=tenant, site=site, wd=wd, host=host, query=query,
             careers_url=careers_url or url, notes=notes)
     row["ticker"] = (row.get("ticker") or "").upper()
+    registry.check_fields(row)      # before any request is built from them
 
     clash = [r for r in registry.load(REGISTRY)
              if r["company"].lower() == name.strip().lower() and r["ats"] == row["ats"]]
@@ -901,11 +920,12 @@ async def update_company(company: str, row_ats: str | None = None,
         notes=notes).items() if v is not None}
     if not changes:
         return {"ok": False, "error": "nothing to change"}
-    bad = _local_address(changes)
+    bad = await _local_address(changes)
     if bad:
         return {"ok": False, "error": f"refusing a local or private address: {bad}"}
     current = registry.find_row(REGISTRY, company, row_ats)
     new = current | {k: (v.lower() if k == "ats" else v) for k, v in changes.items()}
+    registry.check_fields(new)      # before any request is built from them
     postings = None
     if any(new[k] != current[k] for k in _IDENTITY):
         postings, why = await _check_board(new, allow_tier_b=True)

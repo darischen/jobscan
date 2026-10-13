@@ -8,6 +8,7 @@ from __future__ import annotations
 import csv
 import io
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -115,6 +116,32 @@ def split_tiers(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[
 # edit is written to a temporary file, loaded and validated, and only then
 # moved over the original: a write that would break the registry never lands.
 
+# What each board field may hold. Adapters build urls by pasting these in
+# (https://{tenant}.{wd}.myworkdayjobs.com, .../boards/{token}/jobs), so a
+# value carrying url syntax would send the request somewhere else entirely:
+# a tenant of "10.0.0.1#" makes the host 10.0.0.1. Every committed row
+# met these on 2026-10-13; the two widest are Accenture's Workday filter
+# token ("locationCountry=United States of America") and an Avature site
+# path ("en_US/careers").
+_FIELD_RULES = {
+    "tenant": re.compile(r"[A-Za-z0-9_.-]+"),
+    "wd": re.compile(r"[A-Za-z0-9-]+"),
+    "host": re.compile(r"[A-Za-z0-9.-]+"),
+    "site": re.compile(r"[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*"),
+    "token": re.compile(r"[A-Za-z0-9_.= -]+"),
+    "query": re.compile(r"[^/\@#?:\x00-\x1f]+"),
+}
+
+
+def check_fields(row: dict[str, Any]) -> None:
+    """Refuse board fields that are not plain values (see _FIELD_RULES)."""
+    for key, rule in _FIELD_RULES.items():
+        value = row.get(key) or ""
+        if value and (not rule.fullmatch(value)
+                      or (key == "site" and ".." in value.split("/"))):
+            raise RegistryError(f"{key} {value!r} is not a plain {key} value")
+
+
 def _clean(row: dict[str, Any]) -> dict[str, str]:
     unknown = set(row) - set(COLUMNS)
     if unknown:
@@ -130,6 +157,7 @@ def _clean(row: dict[str, Any]) -> dict[str, str]:
         out["ats"] = out["ats"].lower()
     if "ticker" in out:
         out["ticker"] = out["ticker"].upper()
+    check_fields(out)
     return out
 
 
