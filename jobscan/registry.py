@@ -6,6 +6,8 @@ A company with two boards gets two rows with the same company name.
 from __future__ import annotations
 
 import csv
+import io
+import os
 from pathlib import Path
 from typing import Any
 
@@ -105,6 +107,147 @@ def split_tiers(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[
     a = [r for r in rows if r["ats"] in TIER_A]
     b = [r for r in rows if r["ats"] not in TIER_A]
     return a, b
+
+
+# ------------------------------------------------------------------- writing
+# The file is edited line by line rather than regenerated, so a change touches
+# exactly one line and every other row stays byte for byte as it was. Each
+# edit is written to a temporary file, loaded and validated, and only then
+# moved over the original: a write that would break the registry never lands.
+
+def _clean(row: dict[str, Any]) -> dict[str, str]:
+    unknown = set(row) - set(COLUMNS)
+    if unknown:
+        raise RegistryError(f"unknown column(s) {sorted(unknown)}; "
+                            f"columns are {COLUMNS}")
+    out = {k: str(v if v is not None else "").strip() for k, v in row.items()}
+    for k, v in out.items():
+        if "\n" in v or "\r" in v:
+            # One record per line is what keeps a stray quote from swallowing
+            # the rows after it (tests/test_registry_file.py).
+            raise RegistryError(f"{k} contains a line break")
+    if "ats" in out:
+        out["ats"] = out["ats"].lower()
+    if "ticker" in out:
+        out["ticker"] = out["ticker"].upper()
+    return out
+
+
+def format_row(row: dict[str, Any]) -> str:
+    """One registry line, quoted only where csv needs it, no line ending."""
+    buf = io.StringIO()
+    csv.writer(buf, lineterminator="").writerow(
+        [row.get(c, "") or "" for c in COLUMNS])
+    return buf.getvalue()
+
+
+def _read_lines(path: Path) -> tuple[list[str], str, bool]:
+    text = path.read_bytes().decode("utf-8")  # read_text would fold CRLF
+    bom = text.startswith("\ufeff")
+    text = text.removeprefix("\ufeff")
+    newline = "\r\n" if "\r\n" in text else "\n"
+    lines = text.split(newline)
+    if lines and lines[-1] == "":
+        lines.pop()
+    return lines, newline, bom
+
+
+def _parse(line: str) -> dict[str, str]:
+    values = next(csv.reader([line]), [])
+    return {c: (values[i] if i < len(values) else "").strip()
+            for i, c in enumerate(COLUMNS)}
+
+
+def _matches(path: Path, lines: list[str], company: str,
+             ats: str | None) -> list[int]:
+    """Indexes of the data lines for `company` (exact, any case), narrowed
+    to one `ats` when given. Exactly one, or an error naming the problem."""
+    want = company.strip().lower()
+    hits = [i for i, line in enumerate(lines[1:], start=1)
+            if line.strip() and _parse(line)["company"].lower() == want]
+    if ats:
+        hits = [i for i in hits if _parse(lines[i])["ats"].lower() == ats.lower()]
+    if not hits:
+        raise RegistryError(f"no row for {company!r}"
+                            + (f" with ats {ats!r}" if ats else "") + f" in {path}")
+    if len(hits) > 1:
+        kinds = ", ".join(_parse(lines[i])["ats"] for i in hits)
+        raise RegistryError(f"{company!r} has {len(hits)} rows ({kinds}); "
+                            f"name the ats to pick one")
+    return hits
+
+
+def _commit(path: Path, lines: list[str], newline: str, bom: bool,
+            expect: int) -> None:
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(("\ufeff" if bom else "") + newline.join(lines) + newline,
+                   encoding="utf-8", newline="")
+    try:
+        rows = load(tmp)
+        if len(rows) != expect:
+            raise RegistryError(f"expected {expect} rows after the edit, "
+                                f"read {len(rows)}; not written")
+        os.replace(tmp, path)
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
+def find_row(path: str | Path, company: str,
+             ats: str | None = None) -> dict[str, str]:
+    """The one row for `company` (exact name, any case), as stored."""
+    path = Path(path)
+    lines, _, _ = _read_lines(path)
+    return _parse(lines[_matches(path, lines, company, ats)[0]])
+
+
+def add_row(path: str | Path, row: dict[str, Any]) -> dict[str, str]:
+    """Insert a row in company-name order. Refuses a second row with the same
+    company and ats, which is an update, not an addition."""
+    path = Path(path)
+    new = {c: "" for c in COLUMNS} | _clean(row)
+    if not new["company"] or new["company"].startswith("#"):
+        raise RegistryError("company must be set and must not start with '#'")
+    lines, newline, bom = _read_lines(path)
+    before = len(load(path))
+    key = new["company"].lower()
+    at = len(lines)
+    for i, line in enumerate(lines[1:], start=1):
+        old = _parse(line)
+        if old["company"].lower() == key and old["ats"].lower() == new["ats"]:
+            raise RegistryError(f"{old['company']} already has a {new['ats']} row; "
+                                f"update it instead")
+        if at == len(lines) and old["company"].lower() > key:
+            at = i
+    lines.insert(at, format_row(new))
+    _commit(path, lines, newline, bom, before + 1)
+    return new
+
+
+def update_row(path: str | Path, company: str, changes: dict[str, Any],
+               ats: str | None = None) -> dict[str, str]:
+    """Change some fields of one row; the rest stay as they are."""
+    path = Path(path)
+    lines, newline, bom = _read_lines(path)
+    before = len(load(path))
+    i = _matches(path, lines, company, ats)[0]
+    new = _parse(lines[i]) | _clean(changes)
+    if not new["company"] or new["company"].startswith("#"):
+        raise RegistryError("company must be set and must not start with '#'")
+    lines[i] = format_row(new)
+    _commit(path, lines, newline, bom, before)
+    return new
+
+
+def remove_row(path: str | Path, company: str,
+               ats: str | None = None) -> dict[str, str]:
+    """Delete one row and return what it held."""
+    path = Path(path)
+    lines, newline, bom = _read_lines(path)
+    before = len(load(path))
+    i = _matches(path, lines, company, ats)[0]
+    old = _parse(lines.pop(i))
+    _commit(path, lines, newline, bom, before - 1)
+    return old
 
 
 def write_template(path: str | Path) -> None:
