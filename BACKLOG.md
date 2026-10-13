@@ -168,10 +168,17 @@ JPMorgan 5,100 -> 7,301). A full `verify.py` on an unfiltered network:
       of a row that failed that day.
 - [x] **`verify.py` link check headers** (found 2026-10-12): sends browser
       navigation headers. Meta answered 400 without them; now 3/3 live.
-- [ ] **Amazon reads exactly 10,000**: the paginated check is silent because
-      amazon.jobs' own API reports `hits: 10000`. The cap is theirs and the
-      real count unknown. Slice by a facet (country, category) to find out.
-- [ ] **Workday facet slicing tops out around 10x the cap**: measured on
+- [x] **Amazon reads exactly 10,000**: the paginated check was silent because
+      amazon.jobs' own API reports `hits: 10000` and refuses offsets past it.
+      The adapter now splits a search at the ceiling by country
+      (`normalized_country_code[]`), and a country still at the ceiling by
+      `category[]`; both facets partition the board. 2026-10-13: 22,424 of
+      22,424 (USA 13,323, so one split was not enough), 1,362 early-career
+      hits (572 in July at 10,000), 100% dated, 3/3 links live.
+- [x] **Workday facet slicing tops out around 10x the cap**: won't fix,
+      owner decision 2026-10-13. Only Accenture is that large and its row
+      filters to the US server side; a new board of that size gets the same
+      `token` filter, and the paginated check says when one needs it. Measured on
       Accenture unfiltered, 2026-10-12: 20,847 of ~42,100 postings in 3,980
       requests and 99 minutes, because slices still over 2,000 after two
       levels are read only to the cap. Fine for NVIDIA (~2,700, 144
@@ -199,9 +206,16 @@ JPMorgan 5,100 -> 7,301). A full `verify.py` on an unfiltered network:
 
 ## 7. Unbuilt features
 
-- **`tier_b.py`**: documented in the README, never written. Playwright runner
-  for boards that need a browser (Tesla, and whatever section 4 leaves).
-- **Application tracking**: `applied_at` and `starred` exist in the `jobs`
-  schema and are unused.
-- **MCP extensions**: HTTP transport, Docker, progress streaming, registry writes.
-- **Daily cron** writing `--new-only --format md` (README roadmap #3).
+Owner decisions, 2026-10-13, are recorded on each item.
+
+- [ ] **`tier_b.py`**: documented in the README, never written. Playwright
+      runner for boards that need a browser. Decision: build it. Tesla is the
+      only row today, but other board families will not answer plain HTTP
+      either, and this is where they go.
+- [ ] **Application tracking**: `applied_at` and `starred` exist in the `jobs`
+      schema and are unused. Decision: both a CLI command and MCP tools.
+- [ ] **MCP extensions**: HTTP transport, Docker, progress streaming, registry
+      writes. Undecided.
+- [x] **Daily scan**: won't build a cron job or a hosted schedule. Decision:
+      the daily scan is run from an interactive session connected to the MCP
+      server (`scan`, then `get_scan_results`), nothing outside of that.

@@ -54,7 +54,11 @@ def _board_total(row: dict[str, Any], n: Any) -> None:
 # backend. No auth. account.amazon.jobs is the application portal and does
 # require a login, but nothing here touches it.
 AMAZON_PAGE = 100          # server rejects result_limit > 100
-AMAZON_CEILING = 10_000    # hits saturates here, so slice with `query`
+AMAZON_CEILING = 10_000    # hits saturates here and offsets past it are refused
+# Filters that split a search at the ceiling, in order. Both partition the
+# board: on 2026-10-13 each facet's counts summed to the same 22,424, of which
+# the USA held 13,323, so a country can itself need the second split.
+AMAZON_SLICES = ("normalized_country_code", "category")
 
 _AMZ_DATE = re.compile(r"([A-Z][a-z]+)\s+(\d{1,2}),\s+(\d{4})")
 _AMZ_MONTHS = {m: i for i, m in enumerate(
@@ -76,47 +80,79 @@ def _amazon_date(value: str | None) -> str | None:
 
 
 async def amazon(c: httpx.AsyncClient, company: str, row: dict[str, Any]) -> list[Job]:
+    found = await _amazon_sweep(c, row.get("query", ""), {}, row)
+    out = []
+    for j in found.values():
+        posted, src = dates.pick(
+            ("posted_date", dates.from_iso(j.get("posted_date"))),
+            ("posted_date", _amazon_date(j.get("posted_date"))),
+        )
+        path = j.get("job_path") or ""
+        out.append(Job(
+            company=company,
+            title=j.get("title", ""),
+            url=f"https://www.amazon.jobs{path}",
+            location=(j.get("normalized_location")
+                      or j.get("location") or ""),
+            ats="amazon",
+            posted_at=posted,
+            posted_source=src,
+            raw_id=str(j.get("id_icims") or j.get("id") or path),
+            department=j.get("job_category") or j.get("business_category") or "",
+        ))
+    return out
+
+
+async def _amazon_sweep(c: httpx.AsyncClient, query: str,
+                        applied: dict[str, str],
+                        row: dict[str, Any] | None = None) -> dict[str, dict[str, Any]]:
+    """Every posting matching `applied`, keyed by id.
+
+    A search at the ceiling is re-read one facet value at a time, and a
+    value still at the ceiling by the next facet. With no facet left it is
+    read to the ceiling; the board total recorded at the top is the facet
+    sum, so tools/verify.py reports the shortfall.
+    """
     url = "https://www.amazon.jobs/en/search.json"
-    query = row.get("query", "")
-    out, offset, hits = [], 0, None
+    facet = (AMAZON_SLICES[len(applied)]
+             if len(applied) < len(AMAZON_SLICES) else None)
+    found: dict[str, dict[str, Any]] = {}
+    offset, hits = 0, None
     while True:
+        params = [("base_query", query), ("offset", offset),
+                  ("result_limit", AMAZON_PAGE), ("sort", "recent")]
+        params += [(f"{k}[]", v) for k, v in applied.items()]
+        if facet and offset == 0:
+            params.append(("facets[]", facet))
         # No try/except here. Every other adapter lets failures reach
         # runner._one, which retries once and then records the error. Catching
         # and breaking turned a hard failure into a successful scan of zero
         # jobs, so a decoder bug read as "Amazon has no openings" for weeks.
-        r = await c.get(url, headers=HEADERS, params={
-            "base_query": query, "offset": offset,
-            "result_limit": AMAZON_PAGE, "sort": "recent",
-        })
+        r = await c.get(url, headers=HEADERS, params=params)
         r.raise_for_status()
         d = r.json()
         if d.get("error"):
             raise ValueError(str(d["error"])[:120])
         if hits is None:
             hits = d.get("hits") or 0
-            _board_total(row, hits)
+            counts = {name: n
+                      for value in (d.get("facets") or {}).get(f"{facet}_facet") or []
+                      for name, n in value.items()}
+            if hits >= AMAZON_CEILING and counts:
+                if row is not None:
+                    _board_total(row, sum(counts.values()))
+                for name in counts:
+                    found.update(await _amazon_sweep(
+                        c, query, {**applied, facet: name}))
+                return found
+            if row is not None:
+                _board_total(row, hits)
         jobs = d.get("jobs") or []
         for j in jobs:
-            posted, src = dates.pick(
-                ("posted_date", dates.from_iso(j.get("posted_date"))),
-                ("posted_date", _amazon_date(j.get("posted_date"))),
-            )
-            path = j.get("job_path") or ""
-            out.append(Job(
-                company=company,
-                title=j.get("title", ""),
-                url=f"https://www.amazon.jobs{path}",
-                location=(j.get("normalized_location")
-                          or j.get("location") or ""),
-                ats="amazon",
-                posted_at=posted,
-                posted_source=src,
-                raw_id=str(j.get("id_icims") or j.get("id") or path),
-                department=j.get("job_category") or j.get("business_category") or "",
-            ))
+            found[str(j.get("id_icims") or j.get("id") or j.get("job_path"))] = j
         offset += AMAZON_PAGE
         if not jobs or offset >= min(hits, AMAZON_CEILING):
-            return out
+            return found
 
 # -------------------------------------------------------------------- google
 # Google self-hosts. There is no REST endpoint. The results page is server
