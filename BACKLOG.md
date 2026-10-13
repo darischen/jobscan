@@ -3,8 +3,8 @@
 Worked top to bottom. Tick an item in the commit that completes it, with the
 measured result next to it, so this file stays a record rather than a wish list.
 
-Snapshot 2026-10-12: 119 registry rows, **118 tier A, 1 tier B** (Tesla,
-browser only). On 2026-10-01 it was 117 / 105 / 12, and 116 / 87 / 29 that morning.
+Snapshot 2026-10-13: 119 registry rows, **118 tier A, 1 tier B** (Tesla,
+read through a browser by `tier_b.py`); every row is now scanned. On 2026-10-01 it was 117 / 105 / 12, and 116 / 87 / 29 that morning.
 
 2026-10-12 also found three of our own paging limits silently truncating
 boards: Workday's 2,000 cap (NVIDIA 2,000 -> ~2,700), and `offset > 5000`
@@ -58,8 +58,9 @@ JPMorgan 5,100 -> 7,301). A full `verify.py` on an unfiltered network:
       sitemap exactly. `robots.txt` says automated collection is prohibited
       without written permission; merged disabled, then enabled by owner
       decision on 2026-10-12: 1,138 postings, 166 early-career hits.
-- [ ] **Tesla**: blocked. Akamai answers 403 to plain HTTP on every
-      tesla.com path, homepage included. Browser tier only (section 6).
+- [x] **Tesla**: Akamai answers 403 to plain HTTP on every tesla.com
+      path, homepage included. Read by the browser tier since 2026-10-13
+      (section 7).
 - [x] **IBM**: new `ibm` adapter on `www-api.ibm.com/search/api/v2`. 2,044 =
       board total. Maps "PUNE, IN" / "Toronto, CA" country codes to country
       names, which would otherwise pass the US filter as Indiana / California.
@@ -113,7 +114,7 @@ JPMorgan 5,100 -> 7,301). A full `verify.py` on an unfiltered network:
   - [x] Morgan Stanley: eightfold PCSX at morganstanley.eightfold.ai
         (`site=pcsx`, query `morganstanley.com`; the v2 API 403s). 1,286 of
         1,286, 22 early-career hits, 100% dated, verify ok.
-- [ ] **Tesla**: browser only (see section 3).
+- [x] **Tesla**: browser only, done 2026-10-13 (see section 7).
 - [x] **Meta**: enabled 2026-10-12 by owner decision (see section 3).
 
 ## 5. Data quality
@@ -208,10 +209,32 @@ JPMorgan 5,100 -> 7,301). A full `verify.py` on an unfiltered network:
 
 Owner decisions, 2026-10-13, are recorded on each item.
 
-- [ ] **`tier_b.py`**: documented in the README, never written. Playwright
+- [x] **`tier_b.py`**: documented in the README, never written. Playwright
       runner for boards that need a browser. Decision: build it. Tesla is the
       only row today, but other board families will not answer plain HTTP
       either, and this is where they go.
+      Done 2026-10-13: `python -m jobscan.tier_b`, its own process, at most
+      2 pages at once, same classify / US filter / store / results CSV as
+      tier A. `registry/selectors.json` holds one entry per board in one of
+      two modes: `capture` (read a JSON response the page fetches) or `card`
+      (read rendered elements, following a next / load-more button). MCP
+      `scan_browser` runs it as a child process; `list_companies` marks a
+      configured tier B row implemented.
+      Tesla, capture mode: 8,329 listings in one payload, 5,383 on the US
+      site by Tesla's own count; 5,401 kept (the difference is 13 with no
+      location plus the board moving), 249 in the default buckets, about 5
+      seconds. No posted dates. Headless Chromium gets the same 403 as
+      plain HTTP, so the entry sets `headed` and a window opens per scan.
+      Card mode is tested against a local page only: no registry row uses
+      it yet.
+- [x] **US filter let non-Latin locations through** (found by Tesla,
+      2026-10-13): a location with no A-Z letters read as a non-answer like
+      "Remote" and passed, 201 Japanese and Taiwanese Tesla postings among
+      them. Any letter now counts as naming a place.
+- [x] **A failed board had its postings closed** (found 2026-10-13): both
+      scans passed errored companies to `upsert`, which stamped everything
+      they held as closed until the next good scan. Errored boards are now
+      left untouched.
 - [x] **Application tracking**: `applied_at` and `starred` existed in the
       `jobs` schema unused. Decision: both a CLI command and MCP tools.
       Done 2026-10-13: `Store.mark` / `Store.tracked`; CLI `--apply`,

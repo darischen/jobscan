@@ -19,6 +19,7 @@ pytest_plugins = ()
 
 def pytest_configure(config):
     config.addinivalue_line("markers", "network: hits a live job board")
+    config.addinivalue_line("markers", "browser: drives Chromium on a local page")
 
 
 def pytest_collection_modifyitems(config, items):
@@ -104,6 +105,7 @@ def mcp_env(monkeypatch, registry_csv: Path, seeded_db: Path, tmp_path: Path):
     monkeypatch.setattr(m, "REGISTRY", str(registry_csv))
     monkeypatch.setattr(m, "DB", str(seeded_db))
     monkeypatch.setattr(m, "RESULTS", str(results))
+    monkeypatch.setattr(m, "SELECTORS", str(tmp_path / "selectors.json"))
     m._SCANS.clear()
     yield m
     m._SCANS.clear()

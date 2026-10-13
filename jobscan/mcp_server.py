@@ -13,6 +13,7 @@ code change:
     JOBSCAN_REGISTRY   default registry/companies.csv
     JOBSCAN_DB         default data/jobs.db
     JOBSCAN_RESULTS    default results
+    JOBSCAN_SELECTORS  default registry/selectors.json
 """
 from __future__ import annotations
 
@@ -22,6 +23,7 @@ import functools
 import json
 import os
 import re
+import sys
 import time
 import traceback
 import uuid
@@ -33,7 +35,7 @@ from typing import Any, Callable
 import httpx
 from mcp.server.fastmcp import FastMCP
 
-from . import cli, registry, runner
+from . import cli, registry, runner, tier_b
 from .adapters import HEADERS, TIER_A
 from .core import BUCKETS, DEFAULT_KEEP
 from .store import Store, now
@@ -41,6 +43,7 @@ from .store import Store, now
 REGISTRY = os.getenv("JOBSCAN_REGISTRY", "registry/companies.csv")
 DB = os.getenv("JOBSCAN_DB", "data/jobs.db")
 RESULTS = os.getenv("JOBSCAN_RESULTS", "results")
+SELECTORS = os.getenv("JOBSCAN_SELECTORS", tier_b.SELECTORS)
 
 # Under this many tier A boards a scan blocks and returns rows. At or above it
 # the call returns a scan_id immediately. One company finishes in seconds; the
@@ -48,6 +51,7 @@ RESULTS = os.getenv("JOBSCAN_RESULTS", "results")
 # board could push the tool call past its timeout and lose the whole run.
 SYNC_BOARD_LIMIT = 10
 MAX_TRACKED_SCANS = 10
+TIER_B_TIMEOUT = 900       # seconds for one scan_browser child process
 DEFAULT_LIMIT = 200
 
 mcp = FastMCP("jobscan")
@@ -259,7 +263,7 @@ async def scan(company: str | None = None, ats: str | None = None,
     if not tier_a:
         return {"ok": False,
                 "error": f"{len(tier_b)} row(s) matched but all are tier B, "
-                         f"which has no implementation. See docs/tier-b-triage.md",
+                         f"which needs a browser. Use scan_browser",
                 "tier_b_companies": sorted({r["company"] for r in tier_b})}
 
     bk = _buckets(buckets)
@@ -336,6 +340,87 @@ def scan_status(scan_id: str | None = None) -> dict[str, Any]:
             "started": state.started, "finished": state.finished,
             "summary": state.summary, "errors": state.errors,
             "result_file": state.result_file}
+
+
+# -------------------------------------------------------------------- tier B
+async def _tier_b_process(args: list[str]) -> tuple[int, str, str]:
+    """Run `python -m jobscan.tier_b` and return (exit code, stdout, stderr).
+
+    A child process, not an import: the browser must never share this
+    server's event loop. stdin is closed because this server's own stdin is
+    the MCP transport, and a child that inherited it could eat a message.
+    """
+    proc = await asyncio.create_subprocess_exec(
+        sys.executable, "-m", "jobscan.tier_b", *args,
+        stdin=asyncio.subprocess.DEVNULL,
+        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+    try:
+        out, err = await asyncio.wait_for(proc.communicate(), TIER_B_TIMEOUT)
+    except asyncio.TimeoutError:
+        proc.kill()
+        await proc.wait()
+        return 1, "", f"timed out after {TIER_B_TIMEOUT}s"
+    return (proc.returncode or 0, out.decode("utf-8", "replace"),
+            err.decode("utf-8", "replace"))
+
+
+@tool
+async def scan_browser(company: str | None = None,
+                       buckets: list[str] | None = None,
+                       new_only: bool = False, store: bool = True,
+                       limit: int = DEFAULT_LIMIT) -> dict[str, Any]:
+    """Scan the tier B boards, the ones that only answer a real browser.
+
+    Runs `python -m jobscan.tier_b` as a separate process and waits for it:
+    one browser, at most two boards at a time, so allow a minute or two.
+    A board whose selectors.json entry sets "headed" opens a visible
+    browser window on this machine for the length of the scan. Results are
+    classified, stored and written to a results CSV exactly as scan does.
+
+    Only tier B rows with an entry in registry/selectors.json can be read;
+    the rest are listed in `not_configured`.
+
+    company: name substring, or an exact ticker match. Omit for every tier B row.
+    buckets, new_only, store, limit: as in scan.
+    """
+    rows = _load(company)
+    _, rows_b = registry.split_tiers(rows)
+    if not rows_b:
+        return {"ok": False,
+                "error": f"no tier B rows matched (company={company!r}); "
+                         f"tier A boards are read with scan"}
+    configured = tier_b.load_selectors(SELECTORS)
+    missing = sorted({r["company"] for r in rows_b} - set(configured))
+    if len(missing) == len({r["company"] for r in rows_b}):
+        return {"ok": False,
+                "error": f"none of the {len(missing)} tier B row(s) matched has "
+                         f"an entry in {SELECTORS}",
+                "not_configured": missing}
+
+    bk = _buckets(buckets)
+    command = _describe("scan_browser", company=company, buckets=buckets,
+                        new_only=new_only, store=store)
+    args = ["--file", REGISTRY, "--selectors", SELECTORS, "--db", DB,
+            "--results-dir", RESULTS, "--json", "--command", command,
+            "--bucket", ",".join(bk) if bk else "all"]
+    if company:
+        args += ["--company", company]
+    if new_only:
+        args.append("--new-only")
+    if not store:
+        args.append("--no-store")
+
+    code, out, err = await _tier_b_process(args)
+    if code != 0:
+        return {"ok": False, "kind": "tier_b",
+                "error": (err.strip() or out.strip() or f"exit code {code}")[-600:]}
+    summary = json.loads(out)
+    jobs = summary.pop("jobs", [])
+    # The row with no entry is reported once, here, not also as an error.
+    summary["errors"] = [e for e in summary.get("errors", [])
+                         if e[0] not in missing]
+    return {"ok": True, "tier": "B", **summary, "not_configured": missing,
+            "jobs": jobs[:limit], "truncated": len(jobs) > limit}
 
 
 # ---------------------------------------------------------------------- query
@@ -429,20 +514,24 @@ def tracked_jobs(applied: bool | None = None, starred: bool | None = None,
 @tool
 def list_companies(company: str | None = None,
                    ats: str | None = None) -> dict[str, Any]:
-    """The registry, with each row's tier and whether that tier is implemented.
+    """The registry, with each row's tier and whether it can be read.
 
-    Tier A rows have a working adapter. Tier B rows are recorded but have no
-    scraper, so they are skipped by every scan; they carry implemented: false.
+    Tier A rows have a working HTTP adapter and are read by scan. Tier B
+    rows need a browser: one with an entry in registry/selectors.json is
+    read by scan_browser and carries implemented: true; one without is
+    skipped by everything and carries implemented: false.
     """
     rows = _load(company, ats)
-    tier_a, tier_b = registry.split_tiers(rows)
+    tier_a, rows_b = registry.split_tiers(rows)
     ids = {id(r) for r in tier_a}
+    configured = tier_b.load_selectors(SELECTORS)
     out = []
     for r in rows:
         a = id(r) in ids
         out.append({
             "company": r["company"], "ticker": r.get("ticker", ""),
-            "ats": r["ats"], "tier": "A" if a else "B", "implemented": a,
+            "ats": r["ats"], "tier": "A" if a else "B",
+            "implemented": a or r["company"] in configured,
             "identity": r.get("token") or (f"{r.get('tenant','')}/{r.get('site','')}"
                                            if r.get("tenant") else r.get("host", "")),
             "careers_url": r.get("careers_url", ""),
@@ -451,10 +540,12 @@ def list_companies(company: str | None = None,
     by_ats: dict[str, int] = {}
     for r in out:
         by_ats[r["ats"]] = by_ats.get(r["ats"], 0) + 1
+    unread = [r for r in rows_b if r["company"] not in configured]
     return {"ok": True, "total": len(out), "tier_a": len(tier_a),
-            "tier_b": len(tier_b), "by_ats": by_ats,
-            "unimplemented_note": ("tier B rows are never scanned; see "
-                                   "docs/tier-b-triage.md") if tier_b else "",
+            "tier_b": len(rows_b), "by_ats": by_ats,
+            "unimplemented_note": (f"{len(unread)} tier B row(s) have no "
+                                   f"selectors.json entry and are never "
+                                   f"scanned") if unread else "",
             "companies": out}
 
 

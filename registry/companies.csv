@@ -99,7 +99,7 @@ Stability AI,,greenhouse,stabilityai,,,,,https://stability.ai/careers,,probed  c
 Stripe,,greenhouse,stripe,,,,,https://stripe.com/jobs/search,,private
 Supermicro,SMCI,successfactors,,,,,jobs.supermicro.com,https://jobs.supermicro.com/search/,,"confirmed 1037 jobs (2026-10-01); classic SuccessFactors CSB listing. No date column, and datePosted on job pages and RSS pubDate are both today's date for every posting, so posted_at is left empty"
 Take-Two Interactive,TTWO,greenhouse,taketwo,,,,,https://job-boards.greenhouse.io/taketwo,,probed  confirmed 33 jobs
-Tesla,TSLA,custom,,,,,www.tesla.com,https://www.tesla.com/careers/search/?site=US,,"tier B - blocked 2026-10-01: Akamai (AkamaiGHost) answers 403 Access Denied to plain HTTP on every tesla.com path incl. / /careers /careers/search /cua-api/apps/careers/state /cua-api/careers/search; needs a browser"
+Tesla,TSLA,custom,,,,,www.tesla.com,https://www.tesla.com/careers/search/?site=US,,"tier B - browser only: Akamai answers 403 to plain HTTP on every tesla.com path and to headless Chromium. Read by jobscan.tier_b in a visible window; config in selectors.json"
 TikTok,,tiktok,,,,,lifeattiktok.com,https://lifeattiktok.com/search/,,"api.lifeattiktok.com supplier search API; ~4,280 postings 2026-10-01; dates decoded from snowflake ids"
 Tinder,,lever,matchgroup,,,,,https://jobs.lever.co/matchgroup/,,confirmed 83 jobs
 TSMC,TSM,successfactors,,,,,ro.careers.tsmc.com,https://ro.careers.tsmc.com/search/,,"confirmed 325 jobs (2026-10-01); classic SuccessFactors CSB listing. Overseas board (mostly US and Japan), not TSMC Taiwan hiring. Drops connections when paged back to back, hence SF_PAGE_DELAY"

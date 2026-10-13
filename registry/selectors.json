@@ -1,3 +1,11 @@
 {
-  "_comment": "Tier B only. One entry per company, keyed by the registry company name. Write these once with a Claude Code instance, then commit. 'card' is the selector matching each job link on the careers page."
+  "_comment": "Tier B only. One entry per company, keyed by the registry company name. Two modes, documented at the top of jobscan/tier_b.py: 'capture' reads a JSON response the page fetches, 'card' reads rendered elements. Write an entry once per board, then commit it.",
+  "Tesla": {
+    "headed": true,
+    "capture": "cua-api/apps/careers/state",
+    "items": "listings",
+    "fields": {"id": "id", "title": "t", "location": "l", "department": "dp"},
+    "lookups": {"location": "lookup.locations", "department": "lookup.departments"},
+    "job_url": "https://www.tesla.com/careers/search/job/{id}"
+  }
 }

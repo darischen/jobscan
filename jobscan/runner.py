@@ -135,7 +135,8 @@ def _names_no_place(loc: str) -> bool:
     foreign location, and Accenture alone sends 292 "Location Negotiable"
     postings that would otherwise be dropped on no evidence at all.
     """
-    return not re.search(r"[A-Z]", _PLACELESS.sub(" ", loc.upper()))
+    # Any letter, not just A-Z: "福岡市, 福岡県" names a place too.
+    return not any(ch.isalpha() for ch in _PLACELESS.sub(" ", loc.upper()))
 
 
 def _names_us(loc: str) -> bool:
@@ -222,7 +223,15 @@ async def scan(rows: list[dict[str, Any]], concurrency: int = 20, timeout: float
     jobs: list[Job] = []
     for b in batches:
         jobs.extend(b)
+    return finalize(jobs), errors
+
+
+def finalize(jobs: list[Job]) -> list[Job]:
+    """Classify every title and keep the postings open to a US applicant.
+
+    Shared with tier_b, so a posting is bucketed and filtered the same way
+    whichever tier read it.
+    """
     for j in jobs:
         j.bucket, j.role = classify(j.title)
-    jobs = [j for j in jobs if is_us_location(j.location)]
-    return jobs, errors
+    return [j for j in jobs if is_us_location(j.location)]

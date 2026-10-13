@@ -326,17 +326,19 @@ session with no further setup. Paths come from the environment:
 | `JOBSCAN_REGISTRY` | `registry/companies.csv` |
 | `JOBSCAN_DB` | `data/jobs.db` |
 | `JOBSCAN_RESULTS` | `results` |
+| `JOBSCAN_SELECTORS` | `registry/selectors.json` |
 
-Eleven tools:
+Twelve tools:
 
 | Tool | Network | What it does |
 |---|---|---|
 | `scan` | yes | Fetch boards, classify, store, write a results CSV |
 | `scan_status` | no | Progress and result of a background scan |
+| `scan_browser` | yes | The same for tier B boards, through a browser |
 | `query_jobs` | no | Search stored open postings |
 | `mark_jobs` | no | Record an application, or star a posting |
 | `tracked_jobs` | no | Everything applied to or starred, closed ones too |
-| `list_companies` | no | The registry, with tier and `implemented` |
+| `list_companies` | no | The registry, with tier and whether a row can be read |
 | `registry_health` | no | Baseline coverage and freshness |
 | `verify_boards` | yes | The seven health checks per board |
 | `discover_company` | yes | Careers URL to a registry row |
@@ -362,7 +364,7 @@ And provenance records the tool call, so a results file traces back to
 `mcp:scan(company='nvidia')` rather than to the server process.
 
 ```bash
-pytest                 # 55 offline tests
+pytest                 # offline; two tests drive Chromium on a local page
 pytest -m network      # the handful that hit a live board
 ```
 
@@ -370,48 +372,80 @@ pytest -m network      # the handful that hit a live board
 
 ## Tier B
 
-29 registry rows have no adapter and are skipped by every scan.
-`docs/tier-b-triage.md` classifies them by cost: **B1** needs one adapter per
-ATS family and covers several rows each, **B2** is bespoke per company, and
-**C** genuinely needs a browser. `list_companies` marks all of them
-`implemented: false` so the gap stays visible rather than silent.
+Boards that refuse plain HTTP and only answer a real browser. A row is tier B
+when its `ats` is `custom`, `taleo` or `phenom`. One row is today: Tesla,
+whose edge answers 403 to every non-browser request.
 
-Read that document before starting. Most of the original 39 turned out not to
-need a browser at all: eleven were reachable with an existing adapter and
-wrong CSV cells, and two environment bugs were making healthy boards look dead.
+Try everything else first. Of the 39 rows that started here, 38 turned out
+not to need a browser: wrong CSV cells, an undocumented JSON endpoint, or a
+different board behind the careers page. `docs/tier-b-triage.md` has the
+history.
 
 ```bash
-pip install playwright && playwright install chromium
-python -m jobscan.tier_b --company amd     # not implemented yet
+pip install playwright && python -m playwright install chromium
+python -m jobscan.tier_b                   # every tier B row
+python -m jobscan.tier_b --company tesla
 ```
 
-Each tenant needs a selector config in `registry/selectors.json`:
+It classifies, filters, stores and writes a results CSV exactly as the main
+scan does, into the same database. From an MCP session, `scan_browser` runs
+it as a child process.
+
+Each board needs an entry in `registry/selectors.json`, keyed by the
+registry company name, in one of two modes:
 
 ```json
 {
-  "AMD": { "card": "a.job-title-link" },
-  "Qualcomm": { "card": "[data-ph-at-id='job-link']" }
+  "Tesla": {
+    "headed": true,
+    "capture": "cua-api/apps/careers/state",
+    "items": "listings",
+    "fields": {"id": "id", "title": "t", "location": "l", "department": "dp"},
+    "lookups": {"location": "lookup.locations", "department": "lookup.departments"},
+    "job_url": "https://www.tesla.com/careers/search/job/{id}"
+  },
+  "Acme": {
+    "card": "li.job", "title": "a.title", "location": ".location",
+    "next": "button.load-more"
+  }
 }
 ```
 
-Use a Claude Code instance to write that config once per tenant, then commit
-it. Do not put a model in the hot loop. That reintroduces exactly the
-nondeterministic tool selection the table lookup exists to eliminate.
+**capture** waits for a JSON response the page itself fetches (its url
+contains `capture`) and reads `items` out of it. `fields` maps id, title,
+location and department to keys of each item; `lookups` names the table for
+a field that holds an id rather than a name. **card** reads rendered
+elements: `card` matches each posting, `title` and `location` are selectors
+inside it, and `next` is a next-page or load-more button followed until it
+is gone. Prefer capture when the page has such a response: it is one
+request and does not break when the markup changes.
 
-Apple, Amazon, and Microsoft are marked tier B but all three expose
-undocumented JSON search endpoints. Promoting them to tier A adapters is
-higher value than any browser work.
+Both take `url` (default: the row's `careers_url`), `timeout_ms`, and
+`headed`, which opens a visible browser window. Tesla needs it: the same
+edge that refuses plain HTTP refuses headless Chromium, and serves a visible
+one. A window appears for a few seconds per scan.
+
+A tier B row with no entry is skipped and reported; `list_companies` shows
+it as `implemented: false`. A board whose entry stops matching is an error,
+never an empty board.
+
+Work out an entry once per board, then commit it. Do not put a model in the
+hot loop. That reintroduces exactly the nondeterministic tool selection the
+table lookup exists to eliminate.
 
 ---
 
 ## Build order
+
+All four steps are done; `BACKLOG.md` is the live list.
 
 1. Registry to 100+ companies. `discover.py` plus `verify.py` make this
    mechanical. The registry is the asset. The runner is 400 lines and
    rewritable in an afternoon.
 2. Apple, Amazon, Microsoft JSON adapters. Three of the largest employers,
    no browser needed.
-3. Daily cron writing `--new-only --format md` to a file.
+3. A daily scan. Run from an MCP session (`scan`, then `scan_browser`)
+   rather than a cron job, by decision.
 4. Tier B, last. It is the most work per company and the least reliable.
 
 ## Layout
@@ -426,7 +460,7 @@ jobscan/
   store.py                 sqlite, first_seen / closed_at
   dates.py                 posted-date normalization per ATS
   tier_b.py                Playwright, separate process
-  adapters/__init__.py     8 tier A adapters
+  adapters/__init__.py     the tier A adapters, one function per board family
 registry/
   companies.csv            the registry
   selectors.json           tier B per-tenant selectors

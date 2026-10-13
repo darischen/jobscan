@@ -15,5 +15,6 @@ mcp>=1.27,<2
 pytest>=8
 pytest-asyncio>=0.24
 
-# tier B only, install when you get there:
+# tier B only (python -m jobscan.tier_b, and two tests that are skipped
+# without it). Then: python -m playwright install chromium
 # playwright>=1.44

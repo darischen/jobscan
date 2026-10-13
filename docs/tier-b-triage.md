@@ -233,6 +233,19 @@ stop had silently died. Both fixed in `4e6d6ef`: 3,412 of 3,414.
 | Wing | `absolute_url` points at `wing.com/careers/{id}`, a real 404 | `site=embed` uses the greenhouse embed URL: 6/6 live |
 | Airtable | 41 -> 4 postings, all sales | real; `discover.py --auto` finds no other board |
 
+## Update, 2026-10-13: the last row
+
+Every row above was promoted to tier A by 2026-10-12 except Tesla, the one
+board that needs a browser. `jobscan/tier_b.py` now reads it: the careers
+page fetches `cua-api/apps/careers/state`, a single JSON payload holding all
+8,329 listings with lookup tables for location and department, and the
+runner waits for that response instead of scraping the rendered list.
+Headless Chromium receives the same 403 as plain HTTP; a visible window is
+served, so Tesla's `selectors.json` entry sets `headed`.
+
+Amazon's figure above is also out of date: 10,000 was its API's reporting
+ceiling, and the board holds 22,424.
+
 ## Method, for repeating this
 
 ```bash
