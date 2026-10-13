@@ -3,7 +3,7 @@
 Worked top to bottom. Tick an item in the commit that completes it, with the
 measured result next to it, so this file stays a record rather than a wish list.
 
-Snapshot 2026-10-13: 119 registry rows, **118 tier A, 1 tier B** (Tesla,
+Snapshot 2026-10-13: 120 registry rows, **119 tier A, 1 tier B** (Tesla,
 read through a browser by `tier_b.py`); every row is now scanned. On 2026-10-01 it was 117 / 105 / 12, and 116 / 87 / 29 that morning.
 
 2026-10-12 also found three of our own paging limits silently truncating
@@ -257,6 +257,9 @@ Owner decisions, 2026-10-13, are recorded on each item.
       Checked end to end through a stdio server: Anduril added (greenhouse
       `andurilindustries`, 2,491 postings), a made-up token refused on its
       404, rows updated and removed, the copy byte-identical afterwards.
+- [x] **Anduril added** (2026-10-13), the first row written through the
+      registry-write path: greenhouse `andurilindustries`, 2,496 postings, 225
+      early-career hits, 100% dated, baselined.
 - [x] **Card mode checked live** (2026-10-13): Lever (Palantir, 312 of 312)
       and Greenhouse (Anthropic, 644 of 644 across 13 pages), link for link
       against their HTTP adapters. It found two bugs, both fixed: pagination

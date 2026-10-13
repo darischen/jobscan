@@ -824,5 +824,12 @@
     "company": "Microsoft",
     "dated": 100,
     "checked": "2026-10-12T11:56:52+00:00"
+  },
+  "Anduril": {
+    "count": 2496,
+    "ats": "greenhouse",
+    "company": "Anduril",
+    "dated": 100,
+    "checked": "2026-10-13T23:40:00+00:00"
   }
 }
