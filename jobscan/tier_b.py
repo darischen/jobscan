@@ -36,6 +36,12 @@ modes:
         "max_pages": 50
       }
 
+    After each click it waits until the cards change (more of them, or a
+    different first link), and stops at a button that is gone, disabled or
+    aria-disabled. Checked live on 2026-10-13 against Lever (Palantir, one
+    page) and Greenhouse (Anthropic, 50 a page), link for link against
+    their HTTP adapters.
+
 Both take "url" (default: the row's careers_url), "headed", "timeout_ms" and
 "wait_ms". Write an entry once per board and commit it. A board whose entry
 stops matching fails loudly; it never reads as an empty board.
@@ -66,9 +72,10 @@ DEFAULT_MAX_PAGES = 50
 
 # Reads every card on the page in one round trip. `title` and `location` are
 # selectors inside the card; the link is the card itself when it is an <a>,
-# else the first <a> inside it. `el.href` is already absolute.
+# else the first <a> inside it. `el.href` is already absolute. textContent,
+# not innerText: innerText applies CSS, and Lever uppercases its locations.
 _CARDS_JS = """(cards, cfg) => cards.map(card => {
-    const text = el => el ? (el.innerText || el.textContent || "").trim() : "";
+    const text = el => el ? (el.textContent || "").replace(/\s+/g, " ").trim() : "";
     const link = card.matches("a[href]") ? card : card.querySelector("a[href]");
     return {
         title: text(cfg.title ? card.querySelector(cfg.title) : card),
@@ -76,6 +83,17 @@ _CARDS_JS = """(cards, cfg) => cards.map(card => {
         location: cfg.location ? text(card.querySelector(cfg.location)) : "",
     };
 })"""
+
+# True once the cards differ from what was read: more of them (load more), or
+# a different first link (next page). Waiting on that rather than a fixed
+# delay is what makes a slow page safe.
+_CHANGED_JS = """([sel, n, first]) => {
+    const cards = document.querySelectorAll(sel);
+    if (cards.length > n) return true;
+    const c = cards[0];
+    const a = c && (c.matches("a[href]") ? c : c.querySelector("a[href]"));
+    return !!a && a.href !== first;
+}"""
 
 
 # -------------------------------------------------------------------- config
@@ -232,7 +250,9 @@ async def _cards(page: Any, url: str, cfg: dict[str, Any], timeout: int) -> list
     if nav is not None and nav.status >= 400:
         raise RuntimeError(f"HTTP {nav.status} loading {url}")
     await page.wait_for_selector(cfg["card"], timeout=timeout)
-    wait = cfg.get("wait_ms", DEFAULT_WAIT_MS)
+    # Client-rendered boards re-render once after load (hydration), which
+    # detaches every element found before it. Let that settle first.
+    await page.wait_for_timeout(cfg.get("wait_ms", DEFAULT_WAIT_MS))
     spec = {"title": cfg.get("title"), "location": cfg.get("location")}
     cards: list[dict[str, str]] = []
     links: set[str] = set()
@@ -243,11 +263,20 @@ async def _cards(page: Any, url: str, cfg: dict[str, Any], timeout: int) -> list
         links.update(c["href"] for c in fresh)
         if not fresh or not cfg.get("next"):
             break
-        button = await page.query_selector(cfg["next"])
-        if button is None or not await button.is_enabled():
+        # A locator, not an element handle: it is found again when used, so
+        # a re-render between reading and clicking cannot leave it detached.
+        button = page.locator(cfg["next"]).first
+        if (not await button.count() or not await button.is_enabled()
+                or await button.get_attribute("aria-disabled") == "true"):
             break
         await button.click()
-        await page.wait_for_timeout(wait)
+        try:
+            await page.wait_for_function(
+                _CHANGED_JS, arg=[cfg["card"], len(batch),
+                                  batch[0]["href"] if batch else ""],
+                timeout=timeout)
+        except Exception:  # noqa: BLE001  the click changed nothing: last page
+            break
     return cards
 
 

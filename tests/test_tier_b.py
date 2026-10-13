@@ -239,6 +239,48 @@ async def test_card_mode_reads_a_real_page_and_follows_the_more_button(page_url:
         ("Platform Engineer", "https://x.example/jobs/3", "Denver, CO")]
 
 
+# A board shaped like job-boards.greenhouse.io, 2026-10-13: the list is
+# re-rendered after load (so a button found early is detached by the time it
+# is clicked), "Next page" replaces the rows rather than appending, the new
+# page arrives after a delay, the last page marks the button aria-disabled,
+# and the location is uppercased by CSS only.
+PAGED = """<!doctype html><html><head>
+<style>.loc { text-transform: uppercase; }</style></head><body>
+<table id="t"></table><nav id="nav"></nav>
+<script>
+  const all = Array.from({length: 7}, (_, i) =>
+      [`Engineer ${i}`, `/jobs/${i}`, i % 2 ? "Austin, TX" : "London, United Kingdom"]);
+  let page = 0;
+  function render() {
+    document.getElementById("t").innerHTML = all.slice(page * 3, page * 3 + 3).map(
+      ([t, h, l]) => `<tr class="job-post"><td><a href="https://x.example${h}">` +
+                     `<p class="title">${t}</p><p class="loc">${l}</p></a></td></tr>`).join("");
+    const last = (page + 1) * 3 >= all.length;
+    document.getElementById("nav").innerHTML =
+      `<button class="next" aria-disabled="${last}">Next page</button>`;
+    document.querySelector("button.next").onclick = () => {
+      if (last) return;
+      setTimeout(() => { page += 1; render(); }, 400);
+    };
+  }
+  render();
+  setTimeout(render, 50);     // hydration: every element replaced once
+</script></body></html>"""
+
+
+@pytest.mark.browser
+async def test_card_mode_pages_through_a_re_rendering_paginated_list(tmp_path: Path):
+    pytest.importorskip("playwright")
+    path = tmp_path / "paged.html"
+    path.write_text(PAGED, encoding="utf-8")
+    cfg = {"url": path.as_uri(), "card": "tr.job-post", "title": "p.title",
+           "location": "p.loc", "next": "button.next", "timeout_ms": 5000}
+    async with tier_b._launch(headed=False) as browser:
+        jobs = await tier_b.fetch(browser, {"company": "PagedCo", "ats": "custom"}, cfg)
+    assert [j.url for j in jobs] == [f"https://x.example/jobs/{i}" for i in range(7)]
+    assert jobs[0].location == "London, United Kingdom"     # not as CSS shows it
+
+
 @pytest.mark.browser
 async def test_card_mode_fails_loudly_when_the_selector_matches_nothing(page_url: str):
     cfg = {"url": page_url, "card": "div.renamed", "timeout_ms": 1500}
