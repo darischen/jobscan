@@ -273,3 +273,20 @@ Owner decisions, 2026-10-13, are recorded on each item.
 - [x] **Daily scan**: won't build a cron job or a hosted schedule. Decision:
       the daily scan is run from an interactive session connected to the MCP
       server (`scan`, then `get_scan_results`), nothing outside of that.
+
+## 8. After the backlog (2026-10-13)
+
+- [x] **Title classifier audit.** Ran every title from a full scan (119
+      boards, 78,538 US postings) through the filter and read what it
+      dropped. Added role families `sysde` (Amazon and Google Systems
+      Development Engineer, 219), `mts` (Member of Technical Staff), `mobile`,
+      `developer` (C++, Java, Quantitative, Application...), `compiler`,
+      `programmer` and `test` (SDET, test automation), all on by default, and
+      `bie` (Business Intelligence Engineer) off by default. Back-end spelled
+      with a hyphen now matches. Sales, marketing and similar words no longer
+      exclude a title that names an engineering role (SDE II, Sales Abuse
+      Prevention). "Member of Technical Staff" no longer reads as Staff level.
+      "Associate" means early only in front of the role, not as a bank's pay
+      band. SDE II / III, Software Engineering 5 / II and Salesforce's SMTS /
+      LMTS now carry a level. Postings shown by default: 6,924 -> 7,412; early
+      career +19, -7. `tests/test_classify.py` holds the real titles.
