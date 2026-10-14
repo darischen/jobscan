@@ -306,3 +306,14 @@ Owner decisions, 2026-10-13, are recorded on each item.
       minutes, 0 errors, progress visible through `scan_status`;
       `scan_browser` read Tesla; `query_jobs`, `mark_jobs` and
       `tracked_jobs` checked (one star set, listed, and cleared).
+
+- [x] **`get_stats` MCP tool** (2026-10-13): open, closed and new postings,
+      open postings by bucket, applied and starred, and one line per company
+      ordered by early-career postings. `Store.stats` does the counting.
+- [x] **Accepted risk, registry-write tools** (owner decision 2026-10-13):
+      `add_company` / `update_company` refuse local, private and
+      unresolvable addresses and accept only plain board fields, but do not
+      follow-check redirects or pin DNS against rebinding. Left as is: the
+      server runs only locally over stdio, the tools return a posting count
+      and never a fetched body, and closing it means replacing the HTTP
+      client in every adapter. Revisit if the server ever listens on a port.

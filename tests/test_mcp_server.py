@@ -21,13 +21,14 @@ async def call(mod, _tool: str, **kw):
 
 # ------------------------------------------------------------------ discovery
 @pytest.mark.asyncio
-async def test_all_fifteen_tools_register(mcp_env):
+async def test_all_sixteen_tools_register(mcp_env):
     names = {t.name for t in await mcp_env.mcp.list_tools()}
     assert names == {"scan", "scan_status", "query_jobs", "list_companies",
                      "registry_health", "verify_boards", "discover_company",
                      "get_run_history", "get_scan_results",
                      "mark_jobs", "tracked_jobs", "scan_browser",
-                     "add_company", "update_company", "remove_company"}
+                     "add_company", "update_company", "remove_company",
+                     "get_stats"}
 
 
 @pytest.mark.asyncio

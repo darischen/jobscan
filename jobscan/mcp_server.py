@@ -956,6 +956,30 @@ def remove_company(company: str, ats: str | None = None) -> dict[str, Any]:
 
 # ---------------------------------------------------------------- provenance
 @tool
+def get_stats(company: str | None = None, days: int = 7) -> dict[str, Any]:
+    """Counts over the stored postings. Reads sqlite, touches no network.
+
+    Totals of open and closed postings, open postings by bucket, how many
+    are applied to or starred, and one line per company: open, shown (the
+    default buckets), explicit_early, new within `days`, applied, starred.
+    Companies are ordered by early-career postings first.
+
+    company: exact company name as stored. Omit for all.
+    days: the window for `new`.
+    """
+    st = Store(DB)
+    try:
+        out = st.stats(since=_since_iso(days), company=company)
+        runs = st.db.execute("SELECT COUNT(*) FROM runs").fetchone()[0]
+        last = [dict(r) for r in st.db.execute(
+            "SELECT * FROM runs ORDER BY id DESC LIMIT 1")]
+    finally:
+        st.close()
+    return {"ok": True, "new_within_days": days, **out, "runs": runs,
+            "last_run": last[0] if last else None}
+
+
+@tool
 def get_run_history(limit: int = 20) -> dict[str, Any]:
     """Past scan runs, newest first, from the runs table."""
     st = Store(DB)

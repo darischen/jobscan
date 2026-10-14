@@ -345,7 +345,7 @@ session with no further setup. Paths come from the environment:
 | `JOBSCAN_RESULTS` | `results` |
 | `JOBSCAN_SELECTORS` | `registry/selectors.json` |
 
-Fifteen tools:
+Sixteen tools:
 
 | Tool | Network | What it does |
 |---|---|---|
@@ -362,6 +362,7 @@ Fifteen tools:
 | `add_company` | yes | Confirm a board live, then add its row |
 | `update_company` | maybe | Change a row; rechecks the board if it now points elsewhere |
 | `remove_company` | no | Delete a row |
+| `get_stats` | no | Open / closed / new counts, by bucket and per company |
 | `get_run_history` | no | The `runs` table |
 | `get_scan_results` | no | A past results folder and its sidecar |
 

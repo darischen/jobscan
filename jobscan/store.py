@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .core import Job
+from .core import DEFAULT_KEEP, Job
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS jobs (
@@ -194,6 +194,42 @@ class Store:
             sql += " AND closed_at IS NULL"
         sql += " ORDER BY COALESCE(applied_at, first_seen) DESC, company, title"
         return [dict(r) for r in self.db.execute(sql)]
+
+    def stats(self, since: str | None = None,
+              company: str | None = None) -> dict[str, Any]:
+        """Counts over the stored postings, overall and per company.
+
+        `shown` is the default buckets (what a scan prints), `new` is open
+        postings first seen at or after `since`. Companies are ordered by
+        early-career postings, then shown, since that is what the list is
+        read for; companies with nothing open are left out.
+        """
+        where, args = "", []
+        if company:
+            where, args = " WHERE company = ?", [company]
+        shown = ",".join("?" * len(DEFAULT_KEEP))
+        since = since or "9999"
+        rows = self.db.execute(f"""
+            SELECT company,
+                   SUM(closed_at IS NULL) AS open,
+                   SUM(closed_at IS NOT NULL) AS closed,
+                   SUM(closed_at IS NULL AND bucket = 'explicit_early') AS explicit_early,
+                   SUM(closed_at IS NULL AND bucket IN ({shown})) AS shown,
+                   SUM(closed_at IS NULL AND first_seen >= ?) AS new,
+                   SUM(applied_at IS NOT NULL) AS applied,
+                   SUM(COALESCE(starred, 0) = 1) AS starred
+              FROM jobs{where} GROUP BY company""",
+            [*DEFAULT_KEEP, since, *args]).fetchall()
+        companies = sorted((dict(r) for r in rows if r["open"]),
+                           key=lambda c: (-c["explicit_early"], -c["shown"],
+                                          c["company"]))
+        buckets = dict(self.db.execute(
+            f"SELECT bucket, COUNT(*) FROM jobs WHERE closed_at IS NULL"
+            f"{' AND company = ?' if company else ''} GROUP BY bucket ORDER BY 2 DESC",
+            args).fetchall())
+        total = {k: sum(r[k] for r in rows)
+                 for k in ("open", "closed", "new", "applied", "starred")}
+        return {**total, "by_bucket": buckets, "companies": companies}
 
     def open_jobs(self, buckets: tuple[str, ...] | None = None, since: str | None = None, only_new_keys: list[str] | None = None,
                   companies: list[str] | None = None,
