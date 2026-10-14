@@ -13,9 +13,9 @@ python jobscan.py --new-only                   # only what appeared since last r
 python tools/verify.py                         # check every registry row still resolves
 ```
 
-As of 2026-10-13: 120 registry rows, 119 read over plain HTTP and one
-(Tesla) through a browser. The 119 hold about 118,000 postings, 92 percent
-carrying a real posted date from the board; seven boards publish none.
+As of 2026-10-13: 161 registry rows, 160 read over plain HTTP and one
+(Tesla) through a browser. The 160 hold about 143,000 postings, 93 percent
+carrying a real posted date from the board; eight boards publish none.
 `BACKLOG.md` is the record of what was built and decided.
 
 Originally verified on 20 boards covering 12,344 live postings, 100 percent of

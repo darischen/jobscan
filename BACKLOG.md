@@ -316,4 +316,31 @@ Owner decisions, 2026-10-13, are recorded on each item.
       follow-check redirects or pin DNS against rebinding. Left as is: the
       server runs only locally over stdio, the tools return a posting count
       and never a fetched body, and closing it means replacing the HTTP
-      client in every adapter. Revisit if the server ever listens on a port.
+      client in every adapter. Revisit if the server ever listens on a port.
+
+- [x] **Registry grown by 41 companies** (2026-10-13), 120 -> 161 rows. 67
+      candidates went through `discover.py` twice: once from each careers
+      URL (20 confirmed), then by name against every board system for the
+      rest (22 more). Added: Affirm, Applied Intuition, Arista Networks,
+      Asana, Bank of America, Block, Boeing, Brex, Cadence, Capital One,
+      Chime, Citi, CrowdStrike, Duolingo, Expedia Group, Fastly, Fortinet,
+      Gusto, HP, Hewlett Packard Enterprise, Jane Street, Kraken, Lucid
+      Motors, Mastercard, MongoDB, Perplexity, Plaid, Rivian, Samsara, Scale
+      AI, Shield AI, SoFi, SpaceX, Synopsys, Target, Toast, Verkada, Visa,
+      Western Digital, Zillow, Zoox. All 41 baselined: 39 clean, Citi fixed
+      (below), Synopsys reports 652 but serves 622.
+      Rejected on inspection, not on the count: Walmart's SmartRecruiters
+      board (Mexico and Central America only), LinkedIn's Lever board (test
+      postings), HP's `hp-sandbox` eightfold site (replaced by its Workday
+      board), and two partial-name matches (Analog Devices, Blue Origin).
+      Target is filtered to `jobFamilyGroup=Technology` (96 of ~14,100; the
+      rest are store jobs). Bank of America is its `lateral-us` site only.
+      Still unconfirmed, 22: Akamai, Anysphere, Aurora, Autodesk, Citadel,
+      Confluent, eBay, Epic Systems, Etsy, Grammarly, HubSpot, Hudson River
+      Trading, Lockheed Martin, Marvell, Northrop Grumman, Palo Alto
+      Networks, Rippling, RTX, Texas Instruments, Two Sigma, Yelp, Zoom;
+      plus Analog Devices, Blue Origin, LinkedIn and Walmart.
+- [x] **Workday size estimate picked the wrong facet** (found on Citi): with
+      no two facets agreeing, the tie-break took the largest sum, the
+      `locations` facet, which counts a posting once per location (4,993
+      against ~4,210). It now takes the middle sum. Citi: 4,203, no warning.

@@ -831,5 +831,292 @@
     "company": "Anduril",
     "dated": 100,
     "checked": "2026-10-13T23:40:00+00:00"
+  },
+  "Perplexity": {
+    "count": 133,
+    "ats": "ashby",
+    "company": "Perplexity",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "Duolingo": {
+    "count": 59,
+    "ats": "greenhouse",
+    "company": "Duolingo",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "Gusto": {
+    "count": 99,
+    "ats": "greenhouse",
+    "company": "Gusto",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "Scale AI": {
+    "count": 183,
+    "ats": "greenhouse",
+    "company": "Scale AI",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "Kraken": {
+    "count": 83,
+    "ats": "ashby",
+    "company": "Kraken",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "Chime": {
+    "count": 69,
+    "ats": "greenhouse",
+    "company": "Chime",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "Brex": {
+    "count": 268,
+    "ats": "greenhouse",
+    "company": "Brex",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "Synopsys": {
+    "count": 622,
+    "ats": "radancy",
+    "company": "Synopsys",
+    "dated": 0,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "Asana": {
+    "count": 103,
+    "ats": "greenhouse",
+    "company": "Asana",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "Arista Networks": {
+    "count": 248,
+    "ats": "smartrecruiters",
+    "company": "Arista Networks",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "Plaid": {
+    "count": 122,
+    "ats": "ashby",
+    "company": "Plaid",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "Lucid Motors": {
+    "count": 454,
+    "ats": "greenhouse",
+    "company": "Lucid Motors",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "Expedia Group": {
+    "count": 177,
+    "ats": "workday",
+    "company": "Expedia Group",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "Western Digital": {
+    "count": 339,
+    "ats": "smartrecruiters",
+    "company": "Western Digital",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "Shield AI": {
+    "count": 612,
+    "ats": "lever",
+    "company": "Shield AI",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "Affirm": {
+    "count": 205,
+    "ats": "greenhouse",
+    "company": "Affirm",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "Target": {
+    "count": 96,
+    "ats": "workday",
+    "company": "Target",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "Zillow": {
+    "count": 177,
+    "ats": "workday",
+    "company": "Zillow",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "Fastly": {
+    "count": 49,
+    "ats": "greenhouse",
+    "company": "Fastly",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "CrowdStrike": {
+    "count": 349,
+    "ats": "workday",
+    "company": "CrowdStrike",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "Cadence Design Systems": {
+    "count": 652,
+    "ats": "workday",
+    "company": "Cadence Design Systems",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "Boeing": {
+    "count": 789,
+    "ats": "workday",
+    "company": "Boeing",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "Rivian": {
+    "count": 812,
+    "ats": "icims",
+    "company": "Rivian",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "Toast": {
+    "count": 309,
+    "ats": "greenhouse",
+    "company": "Toast",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "Visa": {
+    "count": 812,
+    "ats": "workday",
+    "company": "Visa",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "Applied Intuition": {
+    "count": 326,
+    "ats": "ashby",
+    "company": "Applied Intuition",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "Block": {
+    "count": 230,
+    "ats": "greenhouse",
+    "company": "Block",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "SoFi": {
+    "count": 49,
+    "ats": "greenhouse",
+    "company": "SoFi",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "Jane Street": {
+    "count": 229,
+    "ats": "greenhouse",
+    "company": "Jane Street",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "MongoDB": {
+    "count": 392,
+    "ats": "greenhouse",
+    "company": "MongoDB",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "Samsara": {
+    "count": 239,
+    "ats": "greenhouse",
+    "company": "Samsara",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "Fortinet": {
+    "count": 998,
+    "ats": "oracle",
+    "company": "Fortinet",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "Verkada": {
+    "count": 312,
+    "ats": "greenhouse",
+    "company": "Verkada",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "HP": {
+    "count": 865,
+    "ats": "workday",
+    "company": "HP",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "Zoox": {
+    "count": 237,
+    "ats": "lever",
+    "company": "Zoox",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "Bank of America": {
+    "count": 1939,
+    "ats": "workday",
+    "company": "Bank of America",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "SpaceX": {
+    "count": 2746,
+    "ats": "greenhouse",
+    "company": "SpaceX",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "Capital One": {
+    "count": 1963,
+    "ats": "workday",
+    "company": "Capital One",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "Hewlett Packard Enterprise": {
+    "count": 1554,
+    "ats": "workday",
+    "company": "Hewlett Packard Enterprise",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "Mastercard": {
+    "count": 1104,
+    "ats": "workday",
+    "company": "Mastercard",
+    "dated": 100,
+    "checked": "2026-10-14T01:42:47+00:00"
+  },
+  "Citi": {
+    "count": 4203,
+    "ats": "workday",
+    "company": "Citi",
+    "dated": 100,
+    "checked": "2026-10-14T02:11:05+00:00"
   }
 }
