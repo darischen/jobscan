@@ -1752,6 +1752,54 @@ SF_PAGE_DELAY = 0.7
 SF_UNIFY_SORTS = ("date", "date", "", "recent")
 
 
+# ISO 3166 codes SuccessFactors tenants write as the country. Only the
+# country's name has to reach runner.is_us_location: a code that is also a
+# US state (DE, IN, CA, PA, GA, AL...) otherwise reads as that state.
+_SF_COUNTRIES = {
+    "AE": "United Arab Emirates", "AR": "Argentina", "AT": "Austria",
+    "AU": "Australia", "BE": "Belgium", "BG": "Bulgaria", "BR": "Brazil",
+    "CA": "Canada", "CH": "Switzerland", "CL": "Chile", "CN": "China",
+    "CO": "Colombia", "CZ": "Czechia", "DE": "Germany", "DK": "Denmark",
+    "EG": "Egypt", "ES": "Spain", "FI": "Finland", "FR": "France",
+    "GB": "United Kingdom", "GR": "Greece", "HK": "Hong Kong",
+    "HU": "Hungary", "ID": "Indonesia", "IE": "Ireland", "IL": "Israel",
+    "IN": "India", "IT": "Italy", "JP": "Japan", "KR": "Korea",
+    "MA": "Morocco", "MX": "Mexico", "MY": "Malaysia", "NL": "Netherlands",
+    "NO": "Norway", "NZ": "New Zealand", "PE": "Peru", "PH": "Philippines",
+    "PL": "Poland", "PT": "Portugal", "RO": "Romania", "RS": "Serbia",
+    "SA": "Saudi Arabia", "SE": "Sweden", "SG": "Singapore", "SK": "Slovakia",
+    "TH": "Thailand", "TR": "Turkey", "TW": "Taiwan", "UA": "Ukraine",
+    "VN": "Vietnam", "ZA": "South Africa",
+}
+_SF_US_STATES = frozenset(
+    "AL AK AZ AR CA CO CT DE FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS "
+    "MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV "
+    "WI WY DC PR".split())
+# head, then the country code, then an optional postcode (which has a digit).
+_SF_PLACE = re.compile(r"^(?P<head>[^,].*?),\s*(?P<cc>[A-Z]{2})(?:,\s*[\w -]*\d[\w -]*)?$")
+
+
+def _sf_country(location: str) -> str:
+    """'Walldorf, DE, 69190' -> 'Walldorf, Germany'.
+
+    SuccessFactors writes City, [State,] COUNTRY, [postcode], and always
+    includes the country: 'Austin, TX, US, 78728', 'Phoenix, AZ, US'. A
+    country other than US is replaced by its name, or lowercased when the
+    table lacks it, which no US check reads as a state. Anything not in
+    that shape is returned as it came.
+    """
+    m = _SF_PLACE.match(location.strip())
+    if not m or m["cc"] == "US":
+        return location
+    # Some tenants leave the country out (Hyundai's "Montgomery, AL"). Then a
+    # trailing code that is also a US state is the state, unless a postcode
+    # or a region before it shows the shape is City, Region, COUNTRY.
+    sure = location.rstrip().endswith(tuple("0123456789")) or "," in m["head"]
+    if m["cc"] in _SF_US_STATES and not sure:
+        return location
+    return f"{m['head']}, {_SF_COUNTRIES.get(m['cc'], m['cc'].lower())}"
+
+
 def _sf_text(fragment: str | None) -> str:
     return " ".join(_html.unescape(SF_TAG.sub(" ", fragment or "")).split())
 
@@ -1796,7 +1844,8 @@ def _sf_classic_rows(page: str, host: str, company: str) -> list[Job]:
             company=company,
             title=_sf_first(SF_TITLE, block),
             url=f"https://{host}{href}" if href.startswith("/") else href,
-            location=_sf_first(SF_LOCATION, block),
+            location="; ".join(_sf_country(p.strip())
+                               for p in _sf_first(SF_LOCATION, block).split(";")),
             ats="successfactors",
             posted_at=posted[0],
             posted_source=posted[1],
@@ -1896,7 +1945,7 @@ def _sf_unify_job(j: dict[str, Any], company: str, host: str, locale: str,
         company=company,
         title=_sf_text(j.get("unifiedStandardTitle")),
         url=f"https://{host}/job/{slug}/{rid}-{locale}/",
-        location="; ".join(_sf_text(x) for x in j.get("jobLocationShort") or []
+        location="; ".join(_sf_country(_sf_text(x)) for x in j.get("jobLocationShort") or []
                            if _sf_text(x)),
         ats="successfactors",
         posted_at=posted,

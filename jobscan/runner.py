@@ -110,6 +110,17 @@ _FOREIGN_RE = _boundary(FOREIGN, re.I)
 # reading as California on 2026-10-12.
 _US_HOMONYMS_RE = _boundary(("BAJA CALIFORNIA", "BAJA CALIFORNIA SUR"), re.I)
 
+# A foreign country standing as the whole last part of a location, which is
+# where a location names its country: "Chennai, TN, India" (TN is Tamil
+# Nadu, not Tennessee), "Bogotá D.C., Colombia". Only the whole last part
+# counts, because US places carry country names inside them: Lake Wales FL,
+# Panama City FL, Lebanon TN, La Cañada Flintridge CA.
+_FOREIGN_LAST_RE = re.compile(
+    "(?:" + "|".join(re.escape(w) for w in FOREIGN) + ")", re.I)
+# "Dublin OR London": the word, not Oregon. Oregon follows a comma
+# ("Albany, OR", "Portland, OR Metro").
+_OR_WORD_RE = re.compile(r"(?<![,\s])\s+OR\s+")
+
 
 # Vocabulary a board uses when it is describing an arrangement rather than
 # naming a place. Whatever survives removing these is a real geographic name,
@@ -152,6 +163,14 @@ def _names_us(loc: str) -> bool:
     loc = _US_HOMONYMS_RE.sub(" ", loc)
     if _US_NAME_RE.search(loc):
         return True
+    # "US" standing alone as a part ("US, Canada") is as plain as a name.
+    if any(p.strip() == "US" for p in re.split(r"[,;|\n]", loc)):
+        return True
+    # Each location of a multi-location req is judged on its own, and one
+    # that ends in a foreign country is foreign whatever codes it holds.
+    parts = [p for p in re.split(r"[;|\n]", loc)
+             if not _FOREIGN_LAST_RE.fullmatch(p.rsplit(",", 1)[-1].strip(" .()\t"))]
+    loc = _OR_WORD_RE.sub(" ", " ; ".join(parts))
     codes = {m.group(0) for m in _US_CODE_RE.finditer(loc)}
     if not codes:
         return False

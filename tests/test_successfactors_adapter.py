@@ -209,3 +209,26 @@ def test_registry_requires_host_and_a_known_site(tmp_path):
                 {"company": "D", "ats": "successfactors", "host": "d.example", "site": "rss"}):
         with pytest.raises(RegistryError):
             load(write_registry(tmp_path / "bad.csv", [bad]))
+
+
+@pytest.mark.parametrize("raw,want", [
+    ("Walldorf, DE, 69190", "Walldorf, Germany"),
+    ("Potsdam, DE, 14469", "Potsdam, Germany"),
+    ("Bangalore, KA, IN", "Bangalore, KA, India"),
+    ("Paris, FR", "Paris, France"),             # FR cannot be a US state
+    # Hyundai leaves out the country on some rows. "City, XX" with no
+    # postcode, where XX is also a US state, cannot be told apart, so it is
+    # left for the US filter to read as the state.
+    ("Montgomery, AL", "Montgomery, AL"),
+    ("Wilmington, DE", "Wilmington, DE"),
+    ("Austin, TX, US, 78728", "Austin, TX, US, 78728"),
+    ("Phoenix, AZ, US", "Phoenix, AZ, US"),
+    ("Sacramento, CA-95814, United States", "Sacramento, CA-95814, United States"),
+    ("Zagreb, HR, 10000", "Zagreb, hr"),          # a code not in the table
+    ("", ""),
+])
+def test_country_codes_become_names_so_de_is_not_delaware(raw, want):
+    """SuccessFactors writes the country as an ISO code after the city or
+    state. 'Walldorf, DE' passed the US filter as Delaware."""
+    from jobscan.adapters import _sf_country
+    assert _sf_country(raw) == want

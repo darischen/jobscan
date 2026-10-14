@@ -290,3 +290,19 @@ Owner decisions, 2026-10-13, are recorded on each item.
       band. SDE II / III, Software Engineering 5 / II and Salesforce's SMTS /
       LMTS now carry a level. Postings shown by default: 6,924 -> 7,412; early
       career +19, -7. `tests/test_classify.py` holds the real titles.
+
+- [x] **US filter leaks found by the first real MCP scan** (2026-10-13).
+      SAP's "(Junior) Full-Stack Developer" in "Potsdam, DE" read as
+      Delaware. 236 non-US postings were passing, measured over the scan:
+      SuccessFactors boards write the country as an ISO code (SAP 207,
+      Hyundai and TSMC in Canada as "CA", Supermicro "IN"), the adapter now
+      writes the country's name; a location whose last part is a foreign
+      country is foreign whatever state-like codes it holds ("Chennai, TN,
+      India", "Bogota D.C., Colombia"); and "OR" between two places is the
+      word, not Oregon ("Dublin OR London"). Checked against US places named
+      after countries (Lake Wales FL, Panama City FL, Lebanon TN, La Canada
+      Flintridge CA, Albany OR), which all still pass.
+- [x] **First real MCP session** (2026-10-13): `scan` of 119 boards in 6
+      minutes, 0 errors, progress visible through `scan_status`;
+      `scan_browser` read Tesla; `query_jobs`, `mark_jobs` and
+      `tracked_jobs` checked (one star set, listed, and cleared).
