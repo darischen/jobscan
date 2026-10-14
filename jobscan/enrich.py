@@ -33,6 +33,11 @@ from .store import Store
 FAMILIES = ("radancy", "meta", "successfactors")
 MAX_PER_RUN = 400
 CONCURRENCY = 4
+MAX_PAGE_BYTES = 4_000_000     # the largest page seen was 0.6 MB (Intuit)
+MAX_REDIRECTS = 4
+# Second-level labels that are part of a public suffix (acme.co.uk), where
+# the site is the last three labels, not two.
+_SUFFIX_SECOND = frozenset({"co", "com", "org", "net", "ac", "gov", "edu"})
 
 _POSTED = re.compile(
     r'"datePosted"\s*:\s*"([^"]+)"'
@@ -56,6 +61,47 @@ def parse_posted(html: str) -> str | None:
     return dt.replace(tzinfo=timezone.utc).isoformat(timespec="seconds")
 
 
+def _site(host: str) -> str:
+    labels = host.lower().rstrip(".").split(".")
+    n = 3 if len(labels) >= 3 and labels[-2] in _SUFFIX_SECOND else 2
+    return ".".join(labels[-n:])
+
+
+def same_site(origin: str, target: str) -> bool:
+    """Whether `target` is an https page on the same site as `origin`.
+
+    A posting's link comes from a board, and so does any redirect it
+    answers with. Following one anywhere would let a board point this
+    fetch at another host, a local address included; within its own site
+    (www, a locale path, a trailing slash) is all a posting page needs.
+    """
+    a, b = httpx.URL(origin), httpx.URL(target)
+    return (a.scheme == b.scheme == "https" and bool(a.host) and bool(b.host)
+            and "." in b.host and _site(a.host) == _site(b.host))
+
+
+async def _fetch(client: httpx.AsyncClient, url: str) -> str:
+    """The page's text: same-site redirects only, at most MAX_PAGE_BYTES."""
+    origin = url
+    for _ in range(MAX_REDIRECTS + 1):
+        if not same_site(origin, url):
+            raise ValueError(f"not following {url} from {origin}")
+        async with client.stream("GET", url, headers=NAVIGATE,
+                                 follow_redirects=False, timeout=30) as r:
+            if r.is_redirect:
+                url = str(r.url.join(r.headers.get("location", "")))
+                continue
+            r.raise_for_status()
+            body = bytearray()
+            async for chunk in r.aiter_bytes():
+                body += chunk
+                if len(body) >= MAX_PAGE_BYTES:
+                    break
+            return bytes(body[:MAX_PAGE_BYTES]).decode(r.encoding or "utf-8",
+                                                       "replace")
+    raise ValueError(f"too many redirects from {origin}")
+
+
 async def fill_dates(store: Store, client: httpx.AsyncClient | None = None,
                      buckets: tuple[str, ...] = DEFAULT_KEEP,
                      limit: int = MAX_PER_RUN) -> dict[str, int]:
@@ -74,15 +120,16 @@ async def fill_dates(store: Store, client: httpx.AsyncClient | None = None,
     sem = asyncio.Semaphore(CONCURRENCY)
 
     async def one(job: dict[str, Any]) -> None:
-        async with sem:
-            try:
-                r = await client.get(job["url"], headers=NAVIGATE,
-                                     follow_redirects=True, timeout=30)
-                r.raise_for_status()
-            except Exception:  # noqa: BLE001  left undated, tried again next run
-                out["failed"] += 1
-                return
-        posted = parse_posted(r.text)
+        # Everything about one page stays inside this try: a page that will
+        # not load, redirects away, or breaks the parser costs that posting
+        # its date and nothing else. It is left undated and tried next run.
+        try:
+            async with sem:
+                html = await _fetch(client, job["url"])
+            posted = parse_posted(html)
+        except Exception:  # noqa: BLE001
+            out["failed"] += 1
+            return
         store.set_posted(job["key"], posted,
                          "detail_page" if posted else "detail_none")
         out["dated" if posted else "no_date"] += 1

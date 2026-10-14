@@ -121,3 +121,82 @@ async def test_a_rescan_keeps_the_filled_date(db: Path):
     st.upsert([_job(1, "radancy")], {"Acme"})      # the board still sends no date
     st.close()
     assert _row(db, 1) == ("2026-08-25T00:00:00+00:00", "detail_page")
+
+
+# ------------------------------------------------------------------ hardening
+def _store_with(tmp_path: Path, n: int = 1) -> Store:
+    st = Store(tmp_path / "h.db")
+    st.upsert([_job(i, "radancy") for i in range(1, n + 1)], {"Acme"})
+    return st
+
+
+async def test_a_redirect_off_the_postings_own_site_is_not_followed(tmp_path: Path):
+    """The link is a board's word. It may move within its site (a locale, a
+    trailing slash) but must not be able to send the fetch somewhere else."""
+    asked: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        asked.append(str(request.url))
+        if request.url.host == "acme.example":
+            return httpx.Response(302, headers={"Location": "http://169.254.169.254/latest/meta-data"})
+        return httpx.Response(200, text=JSON_LD)
+
+    st = _store_with(tmp_path)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as c:
+        out = await enrich.fill_dates(st, c)
+    st.close()
+    assert asked == ["https://acme.example/job/1"]
+    assert out["failed"] == 1 and out["dated"] == 0
+
+
+async def test_a_redirect_within_the_site_is_followed(tmp_path: Path):
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/job/1":
+            return httpx.Response(301, headers={"Location": "/en-us/job/1/"})
+        return httpx.Response(200, text=JSON_LD)
+
+    st = _store_with(tmp_path)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as c:
+        out = await enrich.fill_dates(st, c)
+    st.close()
+    assert out["dated"] == 1
+
+
+async def test_an_oversized_page_is_cut_off_not_read_whole(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(enrich, "MAX_PAGE_BYTES", 1000)
+    big = "x" * 5000 + JSON_LD          # the date sits past the limit
+
+    st = _store_with(tmp_path)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(
+            lambda r: httpx.Response(200, text=big))) as c:
+        out = await enrich.fill_dates(st, c)
+    st.close()
+    assert out == {"tried": 1, "dated": 0, "no_date": 1, "failed": 0}
+
+
+async def test_one_bad_page_does_not_stop_the_rest(tmp_path: Path, monkeypatch):
+    real = enrich.parse_posted
+
+    def flaky(html: str):
+        if "boom" in html:
+            raise RuntimeError("parser blew up")
+        return real(html)
+    monkeypatch.setattr(enrich, "parse_posted", flaky)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text="boom" if request.url.path.endswith("/1") else JSON_LD)
+
+    st = _store_with(tmp_path, n=3)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as c:
+        out = await enrich.fill_dates(st, c)
+    st.close()
+    assert out == {"tried": 3, "dated": 2, "no_date": 0, "failed": 1}
+
+
+def test_only_https_links_are_fetched(tmp_path: Path):
+    assert enrich.same_site("https://acme.example/job/1", "https://www.acme.example/x")
+    assert enrich.same_site("https://jobs.acme.example/a", "https://acme.example/b")
+    assert not enrich.same_site("https://acme.example/job/1", "https://evil.example/x")
+    assert not enrich.same_site("https://acme.example/job/1", "http://acme.example/x")
+    assert not enrich.same_site("https://acme.example/job/1", "https://acme.example.evil.test/x")
+    assert not enrich.same_site("https://acme.example/job/1", "http://10.0.0.1/")

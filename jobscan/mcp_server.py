@@ -207,7 +207,7 @@ async def _run_scan(state: ScanState, tier_a: list[dict[str, Any]],
     started = now()
 
     jobs, errors = await runner.scan(tier_a, on_board_done=state.board_done)
-    dates_filled: dict[str, int] | None = None
+    dates_filled: dict[str, Any] | None = None
 
     if store:
         st = Store(DB)
@@ -220,8 +220,12 @@ async def _run_scan(state: ScanState, tier_a: list[dict[str, Any]],
             stats = st.upsert(jobs, {r["company"] for r in tier_a}
                               - {e[0] for e in errors})
             # Before reading the rows back, so the dates show in this run.
+            # Never fatal: the scan is already stored, dates are a refinement.
             if fill_dates:
-                dates_filled = await enrich.fill_dates(st)
+                try:
+                    dates_filled = await enrich.fill_dates(st)
+                except Exception as e:  # noqa: BLE001
+                    dates_filled = {"error": f"{type(e).__name__}: {e}"}
             records = st.open_jobs(
                 buckets=buckets, since=since,
                 only_new_keys=stats["new_keys"] if new_only else None,

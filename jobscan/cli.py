@@ -397,8 +397,13 @@ def main(argv=None) -> int:
         stats = store.upsert(jobs, {r["company"] for r in tier_a}
                              - {e[0] for e in errors})
         # Before reading the rows back, so the dates show in this run.
-        stats["dated"] = 0 if args.no_fill_dates else \
-            asyncio.run(enrich.fill_dates(store))["dated"]
+        # Never fatal: the scan is already stored, dates are a refinement.
+        stats["dated"] = 0
+        if not args.no_fill_dates:
+            try:
+                stats["dated"] = asyncio.run(enrich.fill_dates(store))["dated"]
+            except Exception as e:  # noqa: BLE001
+                print(f"date fill skipped: {type(e).__name__}: {e}", file=sys.stderr)
         since = None
         if args.since:
             since = (datetime.now(timezone.utc)
