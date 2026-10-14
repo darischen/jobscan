@@ -637,11 +637,23 @@ def _workday_facets(facets: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def _workday_estimate(facets: list[dict[str, Any]],
                       applied: dict[str, list[str]]) -> int:
-    """A capped board's real size: the most common facet sum (see below)."""
+    """A capped board's real size: the most common facet sum (see below).
+
+    When no two facets agree, the middle sum. Facets that skip postings
+    (State) sum low and facets that list a posting once per location sum
+    high, so the ends of the range are the wrong ones to trust: Citi's
+    `locations` said 4,993 against ~4,210 from country and job family.
+    """
     sums = Counter(sum(v.get("count", 0) for v in f["values"])
                    for f in _workday_facets(facets)
                    if f["facetParameter"] not in applied)
-    return max(sums, key=lambda s: (sums[s], s)) if sums else 0
+    if not sums:
+        return 0
+    common, n = max(sums.items(), key=lambda kv: (kv[1], kv[0]))
+    if n > 1:
+        return common
+    ordered = sorted(sums)
+    return ordered[len(ordered) // 2]
 
 
 def _workday_slices(facets: list[dict[str, Any]],

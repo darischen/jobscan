@@ -165,3 +165,22 @@ async def test_an_unknown_facet_filter_fails_loudly():
     async with client:
         with pytest.raises(ValueError, match="Atlantis"):
             await workday(client, "Acme", row)
+
+
+def test_estimate_with_no_agreeing_facets_takes_the_middle_sum_not_the_largest():
+    """Citi, 2026-10-13: no two facets summed alike, and the tie-break took
+    the largest, 4,993 from `locations`, which counts a multi-location
+    posting once per location. The partitioning facets (country, job
+    family, worker type) said ~4,210, and 4,207 had been read, so verify
+    reported a complete board as 790 short."""
+    from jobscan.adapters import _workday_estimate
+
+    def facet(name, total):
+        return {"facetParameter": name, "values": [{"id": "x", "descriptor": "x",
+                                                    "count": total}]}
+    facets = [facet("Country", 4219), facet("State", 3600), facet("family", 4179),
+              facet("workerSubType", 4209), facet("timeType", 3957),
+              facet("locations", 4993)]
+    assert _workday_estimate(facets, {}) == 4209
+    # Two facets agreeing still wins, as before.
+    assert _workday_estimate(facets + [facet("family2", 4179)], {}) == 4179
