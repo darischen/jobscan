@@ -33,6 +33,21 @@ HEADERS = {
 }
 
 
+# What a browser sends when a person opens a job link. metacareers.com
+# answers 400 without the Sec-Fetch set and 200 with it, so every Meta link
+# read as dead. HEADERS asks for JSON, which is right for board APIs and
+# wrong for a posting's public page.
+NAVIGATE = {
+    **HEADERS,
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+    "Upgrade-Insecure-Requests": "1",
+}
+
+
 def _board_total(row: dict[str, Any], n: Any) -> None:
     """Record the board's own posting count on the row, for tools/verify.py.
 

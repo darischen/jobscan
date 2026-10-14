@@ -195,6 +195,26 @@ class Store:
         sql += " ORDER BY COALESCE(applied_at, first_seen) DESC, company, title"
         return [dict(r) for r in self.db.execute(sql)]
 
+    def undated(self, families: tuple[str, ...], buckets: tuple[str, ...],
+                limit: int) -> list[dict[str, Any]]:
+        """Open postings on these board families, in these buckets, with no
+        posted date and not yet looked up (posted_source still blank)."""
+        fq = ",".join("?" * len(families))
+        bq = ",".join("?" * len(buckets))
+        return [dict(r) for r in self.db.execute(
+            f"""SELECT key, url, company FROM jobs
+                 WHERE closed_at IS NULL AND posted_at IS NULL
+                   AND COALESCE(posted_source, '') = ''
+                   AND ats IN ({fq}) AND bucket IN ({bq})
+                 ORDER BY first_seen DESC, key LIMIT ?""",
+            (*families, *buckets, limit))]
+
+    def set_posted(self, key: str, posted_at: str | None, source: str) -> None:
+        """Record a date found outside the listing, or that none exists.
+        Not committed here; the caller commits once for the batch."""
+        self.db.execute("UPDATE jobs SET posted_at=?, posted_source=? WHERE key=?",
+                        (posted_at, source, key))
+
     def stats(self, since: str | None = None,
               company: str | None = None) -> dict[str, Any]:
         """Counts over the stored postings, overall and per company.

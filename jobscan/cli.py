@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from . import registry, runner
+from . import enrich, registry, runner
 from .core import BUCKETS, DEFAULT_KEEP
 from .store import Store, now
 
@@ -239,6 +239,9 @@ def build_parser() -> argparse.ArgumentParser:
     out.add_argument("--db", default=DEFAULT_DB, help=f"sqlite path (default {DEFAULT_DB})")
     out.add_argument("--no-store", action="store_true",
                      help="skip sqlite entirely, print what the boards return now")
+    out.add_argument("--no-fill-dates", action="store_true",
+                     help="do not fetch posting pages for the dates some "
+                          "boards leave out of their listings")
 
     net = p.add_argument_group("network")
     net.add_argument("--concurrency", type=int, default=20)
@@ -393,6 +396,9 @@ def main(argv=None) -> int:
         # nothing, which is not the same as listing nothing.
         stats = store.upsert(jobs, {r["company"] for r in tier_a}
                              - {e[0] for e in errors})
+        # Before reading the rows back, so the dates show in this run.
+        stats["dated"] = 0 if args.no_fill_dates else \
+            asyncio.run(enrich.fill_dates(store))["dated"]
         since = None
         if args.since:
             since = (datetime.now(timezone.utc)
@@ -444,6 +450,7 @@ def main(argv=None) -> int:
 
     print(f"boards={len(tier_a)} raw={len(jobs)} shown={len(records)} "
           f"new={stats['new']} closed={stats['closed']} errors={len(errors)}"
+          + (f" dates_filled={stats['dated']}" if stats.get("dated") else "")
           + (f" tier_b_deferred={len(tier_b)}" if tier_b else ""),
           file=sys.stderr)
     for co, ats, e in errors:

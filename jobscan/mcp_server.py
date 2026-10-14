@@ -37,7 +37,7 @@ from urllib.parse import urlsplit
 import httpx
 from mcp.server.fastmcp import Context, FastMCP
 
-from . import cli, registry, runner, tier_b
+from . import cli, enrich, registry, runner, tier_b
 from .adapters import HEADERS, TIER_A
 from .core import BUCKETS, DEFAULT_KEEP
 from .store import Store, now
@@ -202,11 +202,12 @@ async def _run_scan(state: ScanState, tier_a: list[dict[str, Any]],
                     buckets: tuple[str, ...] | None, since: str | None,
                     new_only: bool, title: str | None, store: bool,
                     limit: int, command: str,
-                    tier_b: int) -> dict[str, Any]:
+                    tier_b: int, fill_dates: bool = True) -> dict[str, Any]:
     started_dt = datetime.now().astimezone()
     started = now()
 
     jobs, errors = await runner.scan(tier_a, on_board_done=state.board_done)
+    dates_filled: dict[str, int] | None = None
 
     if store:
         st = Store(DB)
@@ -218,6 +219,9 @@ async def _run_scan(state: ScanState, tier_a: list[dict[str, Any]],
             # the same as listing nothing.
             stats = st.upsert(jobs, {r["company"] for r in tier_a}
                               - {e[0] for e in errors})
+            # Before reading the rows back, so the dates show in this run.
+            if fill_dates:
+                dates_filled = await enrich.fill_dates(st)
             records = st.open_jobs(
                 buckets=buckets, since=since,
                 only_new_keys=stats["new_keys"] if new_only else None,
@@ -265,6 +269,7 @@ async def _run_scan(state: ScanState, tier_a: list[dict[str, Any]],
     return {"ok": True, "boards": len(tier_a), "raw": len(jobs),
             "shown": len(records), "new": stats["new"], "closed": stats["closed"],
             "errors": [list(e) for e in errors], "tier_b_deferred": tier_b,
+            "dates_filled": dates_filled,
             "result_file": str(dest), "jobs": rows, "truncated": truncated}
 
 
@@ -273,7 +278,8 @@ async def scan(company: str | None = None, ats: str | None = None,
                buckets: list[str] | None = None, since: int | None = None,
                new_only: bool = False, title: str | None = None,
                store: bool = True, limit: int = DEFAULT_LIMIT,
-               wait: bool = False, ctx: Context = None) -> dict[str, Any]:
+               wait: bool = False, fill_dates: bool = True,
+               ctx: Context = None) -> dict[str, Any]:
     """Scan job boards for early-career engineering roles and store the results.
 
     Selects registry rows, fetches every tier A board concurrently, classifies
@@ -296,6 +302,9 @@ async def scan(company: str | None = None, ats: str | None = None,
     limit: caps the returned jobs array only. Never limits what is scanned,
         stored, or written to the CSV; `shown` always reports the true total.
     wait: block until done, streaming progress, whatever the selection's size.
+    fill_dates: after storing, fetch the posting page of each shown posting
+        whose board lists no date (Radancy, Meta, SuccessFactors) and save
+        the date found there. Once per posting, at most 400 a scan.
     """
     rows = _load(company, ats)
     if not rows:
@@ -322,7 +331,7 @@ async def scan(company: str | None = None, ats: str | None = None,
         pump = asyncio.create_task(_pump(state, ctx))
         try:
             out = await _run_scan(state, tier_a, bk, since_iso, new_only, title,
-                                  store, limit, command, len(tier_b))
+                                  store, limit, command, len(tier_b), fill_dates)
         except Exception as e:  # noqa: BLE001
             state.status = "error"
             state.finished = now()
@@ -342,7 +351,7 @@ async def scan(company: str | None = None, ats: str | None = None,
     async def background() -> None:
         try:
             out = await _run_scan(state, tier_a, bk, since_iso, new_only, title,
-                                  store, limit, command, len(tier_b))
+                                  store, limit, command, len(tier_b), fill_dates)
             state.summary = {k: out[k] for k in ("boards", "raw", "shown",
                                                  "new", "closed")}
             state.status = "done"

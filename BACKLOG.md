@@ -344,3 +344,14 @@ Owner decisions, 2026-10-13, are recorded on each item.
       no two facets agreeing, the tie-break took the largest sum, the
       `locations` facet, which counts a posting once per location (4,993
       against ~4,210). It now takes the middle sum. Citi: 4,203, no warning.
+
+- [x] **Posted dates for boards that list none** (2026-10-13). Radancy, Meta
+      and SuccessFactors listings carry no date; each posting's page does
+      (schema.org `datePosted`, JSON-LD or an itemprop attribute), and
+      fifteen sampled per board spread from February to that week, so they
+      are real. `jobscan/enrich.py` fetches the page for shown, undated
+      postings only, once each, at most 400 a scan, after `scan` stores its
+      results (CLI and MCP; `--no-fill-dates` / `fill_dates=false` to skip).
+      First run on the stored scan: 351 of 355 dated in 49 seconds, 1 page
+      with no date, 3 failed fetches left for the next run. Not covered:
+      Electronic Arts (no date on the page) and Tesla (browser only).

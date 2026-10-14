@@ -127,6 +127,15 @@ date. `dates.from_workday_relative` parses it and the `posted_source`
 column records which field the value came from, so you know when a date is
 approximate.
 
+Three board families list postings with no date at all: Radancy (Intuit,
+UnitedHealth Group, Charles Schwab, Synopsys), Meta and SuccessFactors (SAP,
+Supermicro). Each posting's own page still carries one, so after a scan
+stores its results, `jobscan/enrich.py` fetches that page for the postings
+the scan shows and saves the date (`posted_source = detail_page`). Once per
+posting, at most 400 a scan; `--no-fill-dates` skips it. Electronic Arts'
+pages carry no date and Tesla's need a browser, so those stay on
+`first_seen`.
+
 **2. `first_seen`, when your scanner first saw it.** Every requisition gets
 a `first_seen` on insert. This is the honest signal for any board that hides
 dates, and it is the one that matters for applying early. Sort by it and
